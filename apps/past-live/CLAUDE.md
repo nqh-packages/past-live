@@ -330,6 +330,42 @@ interface StudentProfile {
 
 ---
 
+## Backend Relay Contract (Hackathon Slice)
+
+### Browser → backend
+
+```typescript
+type ClientMessage =
+  | { type: 'start'; scenarioId?: string; topic?: string; studentName?: string }
+  | { type: 'audio'; data: string; mimeType: 'audio/pcm;rate=16000' }
+  | { type: 'audio_end' } // relay sends Gemini audioStreamEnd
+  | { type: 'text'; text: string }
+  | { type: 'video'; data: string; mimeType: 'image/jpeg' };
+```
+
+### Backend → browser
+
+```typescript
+type ServerMessage =
+  | { type: 'connected'; sessionId: string }
+  | { type: 'audio'; data: string }
+  | { type: 'input_transcription'; text: string }
+  | { type: 'output_transcription'; text: string }
+  | { type: 'interrupted' }
+  | { type: 'error'; message: string }
+  | { type: 'ended'; reason: string };
+```
+
+| Rule | Detail |
+|------|--------|
+| `start` payload | Must include exactly ONE of `scenarioId` or `topic` |
+| Scenario cards | Use `scenarioId` |
+| Freeform study input | Use `topic` |
+| Subtitle event name | Standardize on `output_transcription` |
+| Hold-to-speak release | Browser sends `audio_end`; relay maps to Gemini `audioStreamEnd` |
+
+---
+
 ## Origin: StudyBit
 
 Pedagogy from `/Volumes/BIWIN/CODES/expo/apps/studybit/`:
