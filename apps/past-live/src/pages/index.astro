@@ -1,0 +1,79 @@
+---
+/**
+ * @what - Home screen for Past, Live
+ * @why - Entry point: hero, topic input, scenario cards, privacy footer
+ */
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import ScenarioCard from "@/components/ScenarioCard.svelte";
+import TopicInput from "@/components/TopicInput.svelte";
+
+const scenarios = [
+  {
+    id: "constantinople-1453",
+    dispatch: "#1453",
+    location: "constantinople",
+    year: 1453,
+    status: "walls breached",
+    role: "emperor's advisor",
+    threat: "critical",
+    headline: "The walls are falling.",
+  },
+  {
+    id: "moon-landing-1969",
+    dispatch: "#1969",
+    location: "apollo 11 command module",
+    year: 1969,
+    status: "fuel warning at 25 seconds",
+    role: "mission control",
+    threat: "critical",
+    headline: "25 seconds of fuel.",
+  },
+  {
+    id: "mongol-empire-1206",
+    dispatch: "#1206",
+    location: "mongol steppe",
+    year: 1206,
+    status: "alliance or war",
+    role: "khan's rival",
+    threat: "critical",
+    headline: "The khan rides.",
+  },
+];
+---
+
+<BaseLayout>
+  <main class="flex flex-col items-center min-h-screen px-5 py-16 max-w-md mx-auto">
+    <!-- Logo -->
+    <h1 class="mb-4">
+      <span class="font-serif italic text-foreground/30 text-5xl">Past</span><span class="text-foreground/30 text-5xl font-serif">,</span>
+      <span class="font-display text-accent text-5xl tracking-wider">LIVE</span>
+    </h1>
+
+    <!-- Hero: Codex register -->
+    <p class="font-serif italic text-foreground text-xl text-center leading-relaxed mb-14">
+      The page is speaking.<br />Are you?
+    </p>
+
+    <!-- Input: Dispatch register -->
+    <section class="w-full mb-14">
+      <TopicInput client:load />
+    </section>
+
+    <!-- Divider -->
+    <p class="text-foreground/20 text-[10px] tracking-[0.2em] uppercase mb-8">
+      or accept a briefing
+    </p>
+
+    <!-- Scenario cards -->
+    <section class="w-full flex flex-col gap-4 mb-16">
+      {scenarios.map((s) => (
+        <ScenarioCard scenario={s} client:visible />
+      ))}
+    </section>
+
+    <!-- Privacy footer -->
+    <footer class="text-foreground/20 text-[10px] tracking-[0.15em] text-center">
+      voice processed live, never recorded
+    </footer>
+  </main>
+</BaseLayout>

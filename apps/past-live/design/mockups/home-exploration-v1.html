@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Past,Live — Direction Exploration</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Archivo+Black&family=Barlow+Condensed:wght@400;600;800&family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600&family=Karla:wght@400;600&family=Lato:wght@400;700&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;500;600&family=Syne:wght@400;600;700;800&family=Instrument+Serif:ital@0;1&family=Bricolage+Grotesque:wght@400;600;800&family=Unbounded:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: rgba(10, 10, 10, 0.9);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .top-bar .project { color: #888; }
+  .top-bar .count { color: #555; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 72px 24px 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .card {
+    height: 520px;
+    border-radius: 16px;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: auto;
+  }
+
+  .card-num {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  .card-logo {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+
+  .card-content {
+    margin-top: auto;
+  }
+
+  .card-headline {
+    margin-bottom: 12px;
+    line-height: 1.05;
+  }
+
+  .card-body {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    max-width: 320px;
+  }
+
+  .card-cta {
+    display: inline-block;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    text-transform: uppercase;
+  }
+
+  /* ─── CARD 1: GLITCH CINEMA ─── */
+  .card-1 {
+    background: #0c0c0c;
+    background-image:
+      radial-gradient(ellipse at 20% 80%, rgba(255, 60, 40, 0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(40, 40, 60, 0.12) 0%, transparent 50%);
+  }
+  .card-1::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,0.012) 2px,
+      rgba(255,255,255,0.012) 4px
+    );
+    pointer-events: none;
+  }
+  .card-1 .card-num { color: #ff3c28; }
+  .card-1 .card-logo { color: rgba(255,255,255,0.3); font-family: 'Space Mono', monospace; }
+  .card-1 .card-headline {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    color: #fff;
+    letter-spacing: 0.02em;
+  }
+  .card-1 .card-headline em {
+    font-style: normal;
+    color: #ff3c28;
+    text-shadow: 0 0 40px rgba(255, 60, 40, 0.3);
+  }
+  .card-1 .card-body { color: rgba(255,255,255,0.45); font-family: 'Space Mono', monospace; font-size: 12px; }
+  .card-1 .card-cta {
+    background: #ff3c28;
+    color: #0c0c0c;
+    font-family: 'Bebas Neue', sans-serif;
+    letter-spacing: 0.08em;
+    font-size: 15px;
+  }
+
+  /* ─── CARD 2: WARM MANUSCRIPT ─── */
+  .card-2 {
+    background: #f5efe6;
+    background-image:
+      radial-gradient(ellipse at 70% 30%, rgba(180, 130, 70, 0.1) 0%, transparent 50%);
+  }
+  .card-2::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-2 .card-num { color: #8b7355; }
+  .card-2 .card-logo { color: rgba(60, 40, 20, 0.35); font-family: 'Cormorant Garamond', serif; font-style: italic; }
+  .card-2 .card-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 44px;
+    color: #2a1f14;
+    font-style: italic;
+  }
+  .card-2 .card-headline em {
+    font-style: normal;
+    color: #b4823a;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 46px;
+  }
+  .card-2 .card-body { color: rgba(42, 31, 20, 0.55); font-family: 'Crimson Text', serif; font-size: 15px; font-style: italic; }
+  .card-2 .card-cta {
+    background: #2a1f14;
+    color: #f5efe6;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    border-radius: 100px;
+  }
+
+  /* ─── CARD 3: SIGNAL BRUTALIST ─── */
+  .card-3 {
+    background: #e8e4de;
+    border: 2px solid #1a1a1a;
+    border-radius: 0;
+  }
+  .card-3 .card-meta { border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 12px; }
+  .card-3 .card-num { color: #1a1a1a; font-family: 'Barlow Condensed', sans-serif; font-weight: 600; font-size: 11px; }
+  .card-3 .card-logo { color: #1a1a1a; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; letter-spacing: 0.15em; }
+  .card-3 .card-headline {
+    font-family: 'Archivo Black', sans-serif;
+    font-size: 58px;
+    color: #1a1a1a;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+  .card-3 .card-headline em {
+    font-style: normal;
+    color: #c23616;
+    display: block;
+  }
+  .card-3 .card-body { color: rgba(26, 26, 26, 0.5); font-family: 'Barlow Condensed', sans-serif; font-size: 14px; letter-spacing: 0.03em; }
+  .card-3 .card-cta {
+    background: #c23616;
+    color: #e8e4de;
+    font-family: 'Archivo Black', sans-serif;
+    text-transform: uppercase;
+    border-radius: 0;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+  }
+
+  /* ─── CARD 4: MIDNIGHT THEATER ─── */
+  .card-4 {
+    background: #0e1117;
+    background-image:
+      radial-gradient(ellipse at 50% 100%, rgba(200, 170, 100, 0.06) 0%, transparent 60%),
+      radial-gradient(circle at 30% 50%, rgba(200, 170, 100, 0.03) 0%, transparent 40%);
+  }
+  .card-4::before {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 200px;
+    background: linear-gradient(to top, rgba(200, 170, 100, 0.04), transparent);
+    pointer-events: none;
+  }
+  .card-4 .card-num { color: #c8aa64; font-family: 'DM Sans', sans-serif; }
+  .card-4 .card-logo { color: rgba(200, 170, 100, 0.3); font-family: 'Cormorant Garamond', serif; letter-spacing: 0.2em; }
+  .card-4 .card-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    color: #f0e8d8;
+    font-style: italic;
+  }
+  .card-4 .card-headline em {
+    font-style: normal;
+    color: #c8aa64;
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+  }
+  .card-4 .card-body { color: rgba(240, 232, 216, 0.35); font-family: 'Cormorant Garamond', serif; font-size: 15px; font-style: italic; }
+  .card-4 .card-cta {
+    background: transparent;
+    color: #c8aa64;
+    border: 1px solid rgba(200, 170, 100, 0.3);
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+  }
+
+  /* ─── CARD 5: ARCADE WARP ─── */
+  .card-5 {
+    background: #1a0a2e;
+    background-image:
+      radial-gradient(ellipse at 0% 100%, rgba(120, 0, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse at 100% 0%, rgba(0, 200, 150, 0.08) 0%, transparent 50%);
+  }
+  .card-5::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      linear-gradient(rgba(120, 0, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120, 0, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+  .card-5 .card-num { color: #00c896; font-family: 'Space Mono', monospace; }
+  .card-5 .card-logo { color: rgba(0, 200, 150, 0.4); font-family: 'Unbounded', sans-serif; font-size: 10px; }
+  .card-5 .card-headline {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 38px;
+    color: #fff;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+  .card-5 .card-headline em {
+    font-style: normal;
+    color: #00c896;
+    display: block;
+    font-size: 44px;
+  }
+  .card-5 .card-body { color: rgba(255,255,255,0.35); font-family: 'Space Mono', monospace; font-size: 11px; letter-spacing: 0.02em; }
+  .card-5 .card-cta {
+    background: #00c896;
+    color: #1a0a2e;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 600;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  /* ─── CARD 6: DESERT DUSK ─── */
+  .card-6 {
+    background: #2d1b0e;
+    background-image:
+      radial-gradient(ellipse at 80% 90%, rgba(220, 120, 40, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 10%, rgba(80, 40, 20, 0.3) 0%, transparent 50%);
+  }
+  .card-6::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-6 .card-num { color: #dc7828; }
+  .card-6 .card-logo { color: rgba(220, 120, 40, 0.35); font-family: 'Oswald', sans-serif; letter-spacing: 0.15em; }
+  .card-6 .card-headline {
+    font-family: 'Abril Fatface', serif;
+    font-size: 46px;
+    color: #f0d8b8;
+  }
+  .card-6 .card-headline em {
+    font-style: normal;
+    color: #dc7828;
+  }
+  .card-6 .card-body { color: rgba(240, 216, 184, 0.4); font-family: 'Lato', sans-serif; font-size: 14px; }
+  .card-6 .card-cta {
+    background: #dc7828;
+    color: #2d1b0e;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    border-radius: 100px;
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── CARD 7: NEON NOIR ─── */
+  .card-7 {
+    background: #111111;
+    position: relative;
+  }
+  .card-7::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px; right: -1px; bottom: -1px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(255, 50, 80, 0.4), rgba(255, 50, 80, 0), rgba(255, 50, 80, 0), rgba(255, 50, 80, 0.15));
+    z-index: 0;
+    padding: 1px;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .card-7 > * { position: relative; z-index: 1; }
+  .card-7 .card-num { color: #ff3250; font-family: 'Bricolage Grotesque', sans-serif; }
+  .card-7 .card-logo { color: rgba(255, 50, 80, 0.3); font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; }
+  .card-7 .card-headline {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-size: 40px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.1;
+  }
+  .card-7 .card-headline em {
+    font-style: normal;
+    color: #ff3250;
+  }
+  .card-7 .card-body { color: rgba(255,255,255,0.3); font-family: 'Karla', sans-serif; font-size: 14px; }
+  .card-7 .card-cta {
+    background: transparent;
+    color: #ff3250;
+    border: 1px solid #ff3250;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 600;
+    border-radius: 100px;
+  }
+
+  /* ─── CARD 8: CONCRETE FUTURE ─── */
+  .card-8 {
+    background: #d1cdc5;
+    background-image:
+      radial-gradient(ellipse at 90% 80%, rgba(0,0,0,0.04) 0%, transparent 50%);
+  }
+  .card-8::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-8 .card-num { color: #1a1a1a; font-family: 'Work Sans', sans-serif; font-weight: 600; }
+  .card-8 .card-logo { color: rgba(26, 26, 26, 0.3); font-family: 'Oswald', sans-serif; }
+  .card-8 .card-headline {
+    font-family: 'Oswald', sans-serif;
+    font-size: 50px;
+    color: #1a1a1a;
+    text-transform: uppercase;
+    font-weight: 700;
+    line-height: 0.95;
+  }
+  .card-8 .card-headline em {
+    font-style: normal;
+    color: #0066cc;
+  }
+  .card-8 .card-body { color: rgba(26, 26, 26, 0.4); font-family: 'Work Sans', sans-serif; font-size: 14px; }
+  .card-8 .card-cta {
+    background: #1a1a1a;
+    color: #d1cdc5;
+    font-family: 'Oswald', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span class="project">Past,Live — Direction Exploration</span>
+  <span class="count">8 variants</span>
+</div>
+
+<div class="grid">
+
+  <!-- CARD 1: GLITCH CINEMA -->
+  <div class="card card-1">
+    <div class="card-meta">
+      <span class="card-num">01 — Glitch Cinema</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">Talk to the dead.<br>They <em>talk back.</em></h2>
+      <p class="card-body">voice-first time travel. no textbooks. no quizzes. just you and a historical figure who won't take your excuses.</p>
+      <button class="card-cta">Start talking</button>
+    </div>
+  </div>
+
+  <!-- CARD 2: WARM MANUSCRIPT -->
+  <div class="card card-2">
+    <div class="card-meta">
+      <span class="card-num">02 — Warm Manuscript</span>
+      <span class="card-logo">past, live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">History remembers<br>those who <em>spoke up</em></h2>
+      <p class="card-body">Step into the story. Advise emperors, argue with generals, survive the moment that changed everything.</p>
+      <button class="card-cta">Enter the story</button>
+    </div>
+  </div>
+
+  <!-- CARD 3: SIGNAL BRUTALIST -->
+  <div class="card card-3">
+    <div class="card-meta">
+      <span class="card-num">03 — Signal Brutalist</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">HISTORY<br><em>DOESN'T<br>WAIT.</em></h2>
+      <p class="card-body">Real-time voice roleplay with AI characters. You're the advisor. The clock is ticking.</p>
+      <button class="card-cta">Go live</button>
+    </div>
+  </div>
+
+  <!-- CARD 4: MIDNIGHT THEATER -->
+  <div class="card card-4">
+    <div class="card-meta">
+      <span class="card-num">04 — Midnight Theater</span>
+      <span class="card-logo">past · live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">The curtain rises.<br><em>You're already on stage.</em></h2>
+      <p class="card-body">A voice in the dark. A moment in history. You have 14 minutes to change everything — or watch it burn.</p>
+      <button class="card-cta">Take the stage</button>
+    </div>
+  </div>
+
+  <!-- CARD 5: ARCADE WARP -->
+  <div class="card card-5">
+    <div class="card-meta">
+      <span class="card-num">05 — Arcade Warp</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">Time machine.<br><em>No quarters.</em></h2>
+      <p class="card-body">voice-drop into 1453, 1969, or 1206. no rules. no score. just you and whoever's running the empire.</p>
+      <button class="card-cta">Warp in</button>
+    </div>
+  </div>
+
+  <!-- CARD 6: DESERT DUSK -->
+  <div class="card card-6">
+    <div class="card-meta">
+      <span class="card-num">06 — Desert Dusk</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">They called you<br><em>advisor.</em></h2>
+      <p class="card-body">Genghis Khan needs your counsel. The emperor wants your strategy. The astronauts await your call.</p>
+      <button class="card-cta">Accept the role</button>
+    </div>
+  </div>
+
+  <!-- CARD 7: NEON NOIR -->
+  <div class="card card-7">
+    <div class="card-meta">
+      <span class="card-num">07 — Neon Noir</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">History is a<br><em>live wire.</em><br>Grab it.</h2>
+      <p class="card-body">Real voice. Real decisions. The character reacts to how you say it, not just what you say.</p>
+      <button class="card-cta">Plug in</button>
+    </div>
+  </div>
+
+  <!-- CARD 8: CONCRETE FUTURE -->
+  <div class="card card-8">
+    <div class="card-meta">
+      <span class="card-num">08 — Concrete Future</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">THE PAST<br>IS <em>LIVE</em><br>NOW</h2>
+      <p class="card-body">Voice-powered historical roleplay. Speak to the moment. The AI speaks back — in character, in real time.</p>
+      <button class="card-cta">Connect now</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

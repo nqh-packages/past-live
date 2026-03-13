@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Past,Live — Direction Exploration v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Archivo+Black&family=Barlow+Condensed:wght@400;600;800&family=Bebas+Neue&family=Bodoni+Moda:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Crimson+Text:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&family=EB+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Instrument+Serif:ital@0;1&family=Karla:wght@400;600&family=Lato:wght@400;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Oswald:wght@400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    color: #e0e0e0;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  .top-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 24px;
+    background: rgba(10, 10, 10, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .top-bar .project { color: #888; }
+  .top-bar .count { color: #555; }
+  .top-bar .note { color: #444; font-size: 10px; letter-spacing: 0.06em; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    padding: 72px 24px 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .card {
+    height: 540px;
+    border-radius: 16px;
+    padding: 28px 32px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: auto;
+  }
+
+  .card-num {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  .card-logo {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.6;
+  }
+
+  .card-content { margin-top: auto; }
+
+  .card-headline {
+    margin-bottom: 12px;
+    line-height: 1.05;
+  }
+
+  .card-body {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    max-width: 340px;
+  }
+
+  .card-cta {
+    display: inline-block;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    text-transform: uppercase;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 1: BURNED CHRONICLE
+     Historic feel: charred parchment, heavy serif, aged grain
+     Modern palette: deep charcoal base + vermillion accent
+     ──────────────────────────────────────────────────── */
+  .card-1 {
+    background: #181210;
+    background-image:
+      radial-gradient(ellipse at 30% 90%, rgba(200, 50, 30, 0.07) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 20%, rgba(60, 40, 25, 0.2) 0%, transparent 50%);
+  }
+  .card-1::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-1::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200, 50, 30, 0.25), transparent);
+  }
+  .card-1 .card-num { color: #c8321e; font-family: 'DM Mono', monospace; opacity: 0.7; }
+  .card-1 .card-logo {
+    color: rgba(200, 180, 150, 0.25);
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+  }
+  .card-1 .card-headline {
+    font-family: 'Bodoni Moda', serif;
+    font-size: 48px;
+    color: #e8ddd0;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+  }
+  .card-1 .card-headline em {
+    font-style: italic;
+    color: #c8321e;
+    font-weight: 400;
+    font-size: 44px;
+  }
+  .card-1 .card-body {
+    color: rgba(232, 221, 208, 0.35);
+    font-family: 'EB Garamond', serif;
+    font-size: 15px;
+    font-style: italic;
+  }
+  .card-1 .card-cta {
+    background: #c8321e;
+    color: #181210;
+    font-family: 'Bodoni Moda', serif;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    font-size: 12px;
+    border-radius: 2px;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 2: STONE EDICT
+     Historic feel: carved inscription, roman capitals, monument weight
+     Modern palette: warm concrete + deep teal accent
+     ──────────────────────────────────────────────────── */
+  .card-2 {
+    background: #e2ddd4;
+    border-radius: 4px;
+  }
+  .card-2::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+    pointer-events: none;
+    border-radius: 4px;
+  }
+  .card-2::after {
+    content: '';
+    position: absolute;
+    top: 24px; left: 24px; right: 24px; bottom: 24px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0;
+    pointer-events: none;
+  }
+  .card-2 .card-num { color: #0d6b5e; font-family: 'Cormorant Garamond', serif; font-weight: 600; opacity: 0.7; letter-spacing: 0.15em; }
+  .card-2 .card-logo { color: rgba(13, 107, 94, 0.3); font-family: 'Cormorant Garamond', serif; font-weight: 700; letter-spacing: 0.25em; }
+  .card-2 .card-headline {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 46px;
+    color: #1a1a18;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.0;
+  }
+  .card-2 .card-headline em {
+    font-style: normal;
+    color: #0d6b5e;
+    display: block;
+    font-size: 50px;
+  }
+  .card-2 .card-body {
+    color: rgba(26, 26, 24, 0.4);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+  .card-2 .card-cta {
+    background: #0d6b5e;
+    color: #e2ddd4;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-size: 12px;
+    border-radius: 0;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 3: WAR ROOM DISPATCH
+     Historic feel: military telegram, typewritten urgency, redacted docs
+     Modern palette: near-black + signal red accent
+     ──────────────────────────────────────────────────── */
+  .card-3 {
+    background: #0f0f0f;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+  }
+  .card-3::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 60px; bottom: 0;
+    width: 1px;
+    background: rgba(255, 60, 40, 0.08);
+    pointer-events: none;
+  }
+  .card-3::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 24px,
+      rgba(255,255,255,0.015) 24px,
+      rgba(255,255,255,0.015) 25px
+    );
+    pointer-events: none;
+  }
+  .card-3 .card-meta { padding-left: 36px; }
+  .card-3 .card-num { color: #ff3c28; font-family: 'Space Mono', monospace; font-size: 10px; opacity: 0.8; }
+  .card-3 .card-logo { color: rgba(255,255,255,0.15); font-family: 'Space Mono', monospace; font-size: 9px; }
+  .card-3 .card-content { padding-left: 36px; }
+  .card-3 .card-headline {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 54px;
+    color: #e8e0d8;
+    letter-spacing: 0.03em;
+  }
+  .card-3 .card-headline em {
+    font-style: normal;
+    color: #ff3c28;
+    text-shadow: 0 0 30px rgba(255, 60, 40, 0.2);
+  }
+  .card-3 .card-headline .redacted {
+    background: rgba(255, 60, 40, 0.12);
+    padding: 0 6px;
+    margin: 0 2px;
+  }
+  .card-3 .card-body {
+    color: rgba(232, 224, 216, 0.3);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+    line-height: 1.7;
+  }
+  .card-3 .card-cta {
+    background: transparent;
+    color: #ff3c28;
+    border: 1px solid rgba(255, 60, 40, 0.35);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    border-radius: 0;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 4: GILDED RUIN
+     Historic feel: gold leaf on dark marble, Byzantine mosaic weight
+     Modern palette: obsidian + oxidized gold accent
+     ──────────────────────────────────────────────────── */
+  .card-4 {
+    background: #0c0b09;
+    background-image:
+      radial-gradient(ellipse at 70% 85%, rgba(180, 150, 80, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse at 20% 30%, rgba(100, 80, 40, 0.04) 0%, transparent 40%);
+  }
+  .card-4::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-4::after {
+    content: '';
+    position: absolute;
+    top: 16px; left: 16px; right: 16px; bottom: 16px;
+    border: 1px solid rgba(180, 150, 80, 0.08);
+    pointer-events: none;
+  }
+  .card-4 .card-num { color: #b4964a; font-family: 'EB Garamond', serif; letter-spacing: 0.2em; opacity: 0.6; }
+  .card-4 .card-logo { color: rgba(180, 150, 80, 0.2); font-family: 'Playfair Display', serif; font-style: italic; letter-spacing: 0.15em; }
+  .card-4 .card-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: 44px;
+    color: #d4c8a8;
+    font-weight: 700;
+    font-style: italic;
+  }
+  .card-4 .card-headline em {
+    font-style: normal;
+    color: #b4964a;
+    display: block;
+    font-size: 52px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-shadow: 0 0 60px rgba(180, 150, 80, 0.12);
+  }
+  .card-4 .card-body {
+    color: rgba(212, 200, 168, 0.28);
+    font-family: 'EB Garamond', serif;
+    font-size: 15px;
+    font-style: italic;
+  }
+  .card-4 .card-cta {
+    background: transparent;
+    color: #b4964a;
+    border: 1px solid rgba(180, 150, 80, 0.2);
+    font-family: 'EB Garamond', serif;
+    letter-spacing: 0.18em;
+    font-size: 12px;
+    text-transform: uppercase;
+    border-radius: 0;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 5: CODEX BREACH
+     Historic feel: illuminated manuscript, uncial letterforms, vellum
+     Modern palette: dark parchment + electric blue accent (ink meets screen)
+     ──────────────────────────────────────────────────── */
+  .card-5 {
+    background: #1a1714;
+    background-image:
+      radial-gradient(ellipse at 90% 10%, rgba(30, 100, 200, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 10% 90%, rgba(40, 30, 20, 0.3) 0%, transparent 50%);
+  }
+  .card-5::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='6' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.08'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-5 .card-num { color: #2b8cd6; font-family: 'Libre Baskerville', serif; font-size: 10px; opacity: 0.7; }
+  .card-5 .card-logo { color: rgba(43, 140, 214, 0.25); font-family: 'Libre Baskerville', serif; font-style: italic; letter-spacing: 0.12em; }
+  .card-5 .card-headline {
+    font-family: 'Libre Baskerville', serif;
+    font-size: 40px;
+    color: #d8cdb8;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .card-5 .card-headline em {
+    font-style: italic;
+    color: #2b8cd6;
+    font-weight: 400;
+    text-shadow: 0 0 40px rgba(43, 140, 214, 0.15);
+  }
+  .card-5 .card-body {
+    color: rgba(216, 205, 184, 0.3);
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    font-style: italic;
+  }
+  .card-5 .card-cta {
+    background: #2b8cd6;
+    color: #1a1714;
+    font-family: 'Libre Baskerville', serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 6: EMPEROR'S SEAL
+     Historic feel: wax seal, decree typography, official weight
+     Modern palette: bone white + crimson seal accent
+     ──────────────────────────────────────────────────── */
+  .card-6 {
+    background: #f2ece2;
+    border-radius: 2px;
+  }
+  .card-6::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-6::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: #9b2230;
+  }
+  .card-6 .card-num { color: #9b2230; font-family: 'EB Garamond', serif; font-weight: 600; letter-spacing: 0.18em; opacity: 0.6; }
+  .card-6 .card-logo { color: rgba(155, 34, 48, 0.3); font-family: 'EB Garamond', serif; font-style: italic; letter-spacing: 0.2em; font-size: 12px; }
+  .card-6 .card-headline {
+    font-family: 'Abril Fatface', serif;
+    font-size: 48px;
+    color: #1a1410;
+    line-height: 1.02;
+  }
+  .card-6 .card-headline em {
+    font-style: normal;
+    color: #9b2230;
+  }
+  .card-6 .card-body {
+    color: rgba(26, 20, 16, 0.4);
+    font-family: 'Crimson Text', serif;
+    font-size: 15px;
+    font-style: italic;
+  }
+  .card-6 .card-cta {
+    background: #9b2230;
+    color: #f2ece2;
+    font-family: 'EB Garamond', serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-size: 12px;
+    border-radius: 0;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 7: SIEGE MAP
+     Historic feel: cartographic, topographic lines, old map edges
+     Modern palette: dark olive/slate + amber marker accent
+     ──────────────────────────────────────────────────── */
+  .card-7 {
+    background: #14160f;
+    background-image:
+      radial-gradient(ellipse at 60% 40%, rgba(60, 70, 40, 0.08) 0%, transparent 50%);
+  }
+  .card-7::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 38px,
+        rgba(120, 140, 80, 0.03) 38px,
+        rgba(120, 140, 80, 0.03) 39px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 38px,
+        rgba(120, 140, 80, 0.03) 38px,
+        rgba(120, 140, 80, 0.03) 39px
+      );
+    pointer-events: none;
+  }
+  .card-7::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .card-7 .card-num { color: #d4a030; font-family: 'DM Mono', monospace; opacity: 0.6; }
+  .card-7 .card-logo { color: rgba(212, 160, 48, 0.2); font-family: 'Barlow Condensed', sans-serif; font-weight: 600; letter-spacing: 0.2em; }
+  .card-7 .card-headline {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 52px;
+    color: #c8c0a8;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 0.95;
+  }
+  .card-7 .card-headline em {
+    font-style: normal;
+    color: #d4a030;
+    display: block;
+  }
+  .card-7 .card-body {
+    color: rgba(200, 192, 168, 0.3);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+  }
+  .card-7 .card-cta {
+    background: #d4a030;
+    color: #14160f;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 13px;
+    border-radius: 2px;
+  }
+
+  /* ────────────────────────────────────────────────────
+     CARD 8: ORACLE CHAMBER
+     Historic feel: temple interior, sacred geometry, oracle's den
+     Modern palette: midnight blue-black + copper/terracotta accent
+     ──────────────────────────────────────────────────── */
+  .card-8 {
+    background: #0d0e14;
+    background-image:
+      radial-gradient(circle at 50% 50%, rgba(180, 100, 60, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 0%, rgba(20, 25, 40, 0.5) 0%, transparent 50%);
+  }
+  .card-8::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 300px; height: 300px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(180, 100, 60, 0.06);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .card-8::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 200px; height: 200px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(180, 100, 60, 0.04);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .card-8 .card-num { color: #b4643c; font-family: 'Instrument Serif', serif; font-style: italic; opacity: 0.6; }
+  .card-8 .card-logo { color: rgba(180, 100, 60, 0.2); font-family: 'Instrument Serif', serif; font-style: italic; letter-spacing: 0.15em; }
+  .card-8 .card-headline {
+    font-family: 'Instrument Serif', serif;
+    font-size: 44px;
+    color: #d8ccc0;
+    font-style: italic;
+    line-height: 1.1;
+  }
+  .card-8 .card-headline em {
+    font-style: normal;
+    color: #b4643c;
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 48px;
+    display: block;
+    letter-spacing: -0.02em;
+  }
+  .card-8 .card-body {
+    color: rgba(216, 204, 192, 0.28);
+    font-family: 'Source Serif 4', serif;
+    font-size: 14px;
+    font-style: italic;
+  }
+  .card-8 .card-cta {
+    background: transparent;
+    color: #b4643c;
+    border: 1px solid rgba(180, 100, 60, 0.25);
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    letter-spacing: 0.1em;
+    font-size: 13px;
+    border-radius: 100px;
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <span class="project">Past,Live — Direction Exploration v2</span>
+  <span class="note">historic texture + modern palette</span>
+  <span class="count">8 variants</span>
+</div>
+
+<div class="grid">
+
+  <!-- CARD 1: BURNED CHRONICLE -->
+  <div class="card card-1">
+    <div class="card-meta">
+      <span class="card-num">01 — Burned Chronicle</span>
+      <span class="card-logo">past, live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">The dead have<br><em>opinions.</em></h2>
+      <p class="card-body">Step through the fire. Speak to the figures who shaped the world — they speak back, and they don't agree with your textbook.</p>
+      <button class="card-cta">Enter the archive</button>
+    </div>
+  </div>
+
+  <!-- CARD 2: STONE EDICT -->
+  <div class="card card-2">
+    <div class="card-meta">
+      <span class="card-num">02 — Stone Edict</span>
+      <span class="card-logo">Past, Live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">Speak and<br>be<br><em>recorded.</em></h2>
+      <p class="card-body">Your voice enters the record. Advise, argue, negotiate — the character remembers every word.</p>
+      <button class="card-cta">Address the court</button>
+    </div>
+  </div>
+
+  <!-- CARD 3: WAR ROOM DISPATCH -->
+  <div class="card card-3">
+    <div class="card-meta">
+      <span class="card-num">03 — War Room Dispatch</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline"><span class="redacted">Advisor</span> needed.<br><em>Immediately.</em></h2>
+      <p class="card-body">> incoming transmission<br>> location: constantinople<br>> year: 1453<br>> status: walls breached<br>> your orders?</p>
+      <button class="card-cta">Accept briefing</button>
+    </div>
+  </div>
+
+  <!-- CARD 4: GILDED RUIN -->
+  <div class="card card-4">
+    <div class="card-meta">
+      <span class="card-num">04 — Gilded Ruin</span>
+      <span class="card-logo">past, live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">Empires fall.<br><em>Voices remain.</em></h2>
+      <p class="card-body">In the rubble of every fallen civilization, someone is still talking. They've been waiting for you to listen.</p>
+      <button class="card-cta">Listen</button>
+    </div>
+  </div>
+
+  <!-- CARD 5: CODEX BREACH -->
+  <div class="card card-5">
+    <div class="card-meta">
+      <span class="card-num">05 — Codex Breach</span>
+      <span class="card-logo">past, live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">The page is<br><em>speaking.</em><br>Are you?</h2>
+      <p class="card-body">Your textbook becomes a portal. Show the page, hear the voice. History is no longer something you read — it's someone you answer to.</p>
+      <button class="card-cta">Open the codex</button>
+    </div>
+  </div>
+
+  <!-- CARD 6: EMPEROR'S SEAL -->
+  <div class="card card-6">
+    <div class="card-meta">
+      <span class="card-num">06 — Emperor's Seal</span>
+      <span class="card-logo">Past, Live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">By imperial<br><em>decree</em>:<br>you advise.</h2>
+      <p class="card-body">The emperor summons you by name. Refuse and the harbor falls. Accept and you have 14 minutes to change the course of history.</p>
+      <button class="card-cta">Accept the summons</button>
+    </div>
+  </div>
+
+  <!-- CARD 7: SIEGE MAP -->
+  <div class="card card-7">
+    <div class="card-meta">
+      <span class="card-num">07 — Siege Map</span>
+      <span class="card-logo">PAST,LIVE</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">COORDINATES<br><em>LOCKED.</em><br>SPEAK.</h2>
+      <p class="card-body">1453. 1969. 1206. Three coordinates. Three turning points. One voice — yours.</p>
+      <button class="card-cta">Deploy</button>
+    </div>
+  </div>
+
+  <!-- CARD 8: ORACLE CHAMBER -->
+  <div class="card card-8">
+    <div class="card-meta">
+      <span class="card-num">08 — Oracle Chamber</span>
+      <span class="card-logo">past, live</span>
+    </div>
+    <div class="card-content">
+      <h2 class="card-headline">The oracle awaits<br><em>your question.</em></h2>
+      <p class="card-body">History doesn't give answers. It gives characters — and they have questions for you. Speak carefully. They're listening.</p>
+      <button class="card-cta">Enter the chamber</button>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
