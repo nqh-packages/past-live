@@ -82,6 +82,15 @@ const session = await ai.live.connect({
       voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } // Informative
     },
     enableAffectiveDialog: true,
+    inputAudioTranscription: {},
+    outputAudioTranscription: {},
+    mediaResolution: 'MEDIA_RESOLUTION_LOW', // only matters when video frames are sent
+    automaticActivityDetection: {
+      startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
+      endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
+      prefixPaddingMs: 20,
+      silenceDurationMs: 100,
+    },
     contextWindowCompression: { slidingWindow: {} }, // Longer sessions
   },
   callbacks: {
@@ -154,6 +163,17 @@ config: { sessionResumption: { handle: previousSessionHandle } }
 // Server sends GoAway before killing (includes timeLeft)
 // Use audioStreamEnd when mic paused to flush cached audio
 ```
+
+### `gemini.ts` implementation defaults
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| Voice | `Charon` | Fixed at connect time |
+| VAD | LOW / LOW, `20ms` padding, `100ms` silence | Match hold-to-speak UX |
+| Compression | `contextWindowCompression: { slidingWindow: {} }` | Longer sessions |
+| Transcriptions | Enable input + output | Required for subtitle UI |
+| Media resolution | `MEDIA_RESOLUTION_LOW` | Use when sparse video is enabled |
+| Mic release | `audio_end` → `audioStreamEnd` | Flush cached audio on button release |
 
 ### Rules
 
@@ -256,6 +276,20 @@ When student says something genuinely unexpected, narrator can briefly break:
 
 Affective dialog handles emotional modulation; prompt handles role shifts.
 
+### Scenario prompt requirements (`scenarios.ts`)
+
+| Requirement | Detail |
+|-------------|--------|
+| Never break character | No teacher-mode language. All correction/probing stays in role |
+| Probing ladder | Probe → hint → rephrase → progress story |
+| Corpsing | Max 1x per session, only if earned, then immediately back in role |
+| Session pacing | Open fast, escalate clearly, wrap naturally by ~14 min |
+| Positive insight | End with an in-character positive observation about the student |
+| Twist | Seed conflict early so step 6 feels inevitable, not random |
+| Tone flexibility | Reward theatrical play, but also accept calm/logical answers |
+
+`scenarios.ts` is the demo-critical file. The relay only carries the experience; the prompt creates it.
+
 ---
 
 ## UI Layout (Audio-Only Story)
@@ -290,6 +324,17 @@ Color theme: Gemini generates palette from era → Gemini 3.1 generates portrait
 | Fall of Constantinople | 1453 | Emperor's advisor | Mehmed drags ships overland — harbor defense failed |
 | Moon Landing | 1969 | NASA mission control | Fuel warning — 25 sec to decide: abort or land |
 | Mongol Empire | 1206 | Khan's rival | Alliance or war — tribe survival at stake |
+
+### What each scenario prompt must contain
+
+| Section | Purpose |
+|---------|---------|
+| Role + stakes | Tell Gemini who it is, who the student is, and what failure costs |
+| Opening beat | Reach scene-setting fast, under 30 sec to action |
+| Historical anchors | 2-3 facts the student can reason from |
+| Twist handling | Define the crisis turn and how to escalate it |
+| Probe behavior | Keep nudging in-character without sounding like a tutor |
+| Ending logic | Resolve to pass/fail gracefully and land step 10 insight |
 
 ---
 
@@ -363,6 +408,17 @@ type ServerMessage =
 | Freeform study input | Use `topic` |
 | Subtitle event name | Standardize on `output_transcription` |
 | Hold-to-speak release | Browser sends `audio_end`; relay maps to Gemini `audioStreamEnd` |
+
+---
+
+## Backend Packaging
+
+| Decision | Value |
+|----------|-------|
+| Location | `apps/past-live/server/` |
+| Package management | Own `package.json` + local `node_modules` |
+| Workspace membership | Keep OUT of `pnpm-workspace.yaml` |
+| Why | Cloud Run deploy isolation + simpler hackathon backend |
 
 ---
 
