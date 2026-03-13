@@ -422,6 +422,55 @@ type ServerMessage =
 
 ---
 
+## Testing Strategy (Hackathon Slice)
+
+### Full-flow states to cover
+
+| State | Screen | Success condition |
+|-------|--------|-------------------|
+| `home` | `/` | User can start from scenario card or typed topic |
+| `connecting` | `/session` | Browser opens WS and sends `start` |
+| `active` | `/session` | Audio, subtitles, mic, text input all work |
+| `camera_opt_in` | `/session` | Accept and skip paths both preserve flow |
+| `ended` | `/summary` | Browser routes after `{ type: 'ended' }` |
+| `error` | `/session` | Browser shows reconnect / retry UI |
+
+### Test layers
+
+| Layer | What to test | Tool |
+|-------|--------------|------|
+| Browser state | Session status transitions, summary artifact, reconnect state | Vitest |
+| Prompt logic | Scenario prompt depth and rules | Vitest |
+| Relay integration | WS upgrade, message forwarding, cleanup, interruption | Vitest + `ws` |
+| Manual critical path | Mic, speaker playback, camera opt-in, reconnect UX | Browser + local dev server |
+
+### Required coverage
+
+| Area | Must verify |
+|------|-------------|
+| Protocol | `start`, `audio`, `audio_end`, `text`, `video`, `interrupted`, `ended`, `error` |
+| Prompt quality | Character lock, probing ladder, corpsing limit, pacing, positive ending |
+| Voice path | Hold-to-speak streams PCM 16kHz and flushes on release |
+| Text path | Typed response gets the same Gemini turn handling as voice |
+| Audio output | PCM 24kHz playback queues and clears on interruption |
+| Summary handoff | `/summary` receives deterministic session artifact |
+| Error handling | Socket close / server error moves UI into retry state |
+
+### Summary MVP
+
+| Field | Source |
+|-------|--------|
+| Scenario title / role | Selected scenario metadata |
+| Duration | Browser session timer |
+| Key facts | Deterministic scenario facts |
+| What actually happened | Deterministic scenario outcome copy |
+| Your call | Last meaningful student transcript / text input |
+| Next briefings | Static related scenarios |
+
+Non-Live Gemini summary extraction stays out of scope for the hackathon slice.
+
+---
+
 ## Origin: StudyBit
 
 Pedagogy from `/Volumes/BIWIN/CODES/expo/apps/studybit/`:
