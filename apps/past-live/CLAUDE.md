@@ -15,7 +15,9 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 |----------|--------|-----------|
 | Category | Live Agents | Real-time voice + vision = strongest wow |
 | Concept | Historical role-play + expression reading | "Time Machine" — surroundings become the setting |
-| Non 'Live' Model | `gemini-3-flash-preview` | Huy's explicit choice |
+| Non 'Live' Model | `gemini-3-flash-preview` (code/JSON output) | Huy's explicit choice |
+| Image Gen Model | `gemini-3.1-flash-image-preview` | Imagen replacement — character portraits + color themes |
+| Live API Model | `gemini-2.5-flash-native-audio-preview-12-2025` | Native audio, affective dialog, VAD |
 | Voice | Single voice (`Charon`) + affective dialog | Can't switch mid-session; tone modulation via prompt + affective |
 | Camera in role-play | Demo-only: opt-in for judges, skippable for users | 6/6 personas rejected forced camera. Affective dialog replaces expression reading |
 | Camera at input | Default ON — "show me what you're studying" | Voice + vision is the product |
@@ -30,7 +32,7 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 | Scenario selection | Menu + input hybrid: 3 cards + open input | Judges see polished cards; students can explore any topic |
 | Frontend | Astro app in monorepo (`apps/past-live/`) | Standard pattern |
 | Backend | Hono on Cloud Run | TS, lightweight, WebSocket support |
-| Art | Gemini → color theme, Imagen 3 → character portrait | Full-stack Google |
+| Art | Gemini → color theme, `gemini-3.1-flash-image-preview` → character portrait | Full-stack Google |
 | Demo scenarios | Constantinople 1453, Moon Landing 1969, Mongol Empire 1206 | 3 diverse regions/eras |
 | Warm-up | Agent-generated from previous session; first visit: name + age | Cannot skip — continuous data collection |
 | App name | **Past, Live** (slug: `past-live`) | Comma = pause. Reads as command: "Past, live." |
@@ -43,9 +45,9 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 | Layer | Technology | Notes |
 |-------|-----------|-------|
 | Frontend | Astro 5 + Svelte 5 | Monorepo `apps/past-live/` |
-| Backend | Hono (TS) on Cloud Run | WebSocket relay to Gemini |
-| AI Voice | Gemini Live API (`@google/genai`) | Real-time voice + sparse vision |
-| AI Image | Imagen 3 | Character portraits + color themes |
+| Backend | Hono (TS) on Cloud Run | `apps/past-live/server/` — WebSocket relay to Gemini |
+| AI Voice | Gemini Live API (`gemini-2.5-flash-native-audio-preview-12-2025`) | Real-time voice + sparse vision |
+| AI Image | `gemini-3.1-flash-image-preview` | Character portraits + color themes |
 | Profile DB | Firestore | Student profiles, session history |
 | Frontend Host | Cloudflare Workers | Standard monorepo deploy |
 | Monitoring | Sentry | Error tracking |
@@ -61,15 +63,18 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 ```typescript
 import { GoogleGenAI } from '@google/genai'; // v1.44.0+ | DEPRECATED: @google/generative-ai
 
-// Affective dialog requires v1alpha
-const ai = new GoogleGenAI({ httpOptions: { apiVersion: 'v1alpha' } });
+// v1alpha REQUIRED for enableAffectiveDialog — without it, API rejects the field
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+  httpOptions: { apiVersion: 'v1alpha' },
+});
 ```
 
 ### Connecting
 
 ```typescript
 const session = await ai.live.connect({
-  model: 'gemini-3-flash-preview',
+  model: 'gemini-2.5-flash-native-audio-preview-12-2025',
   config: {
     responseModalities: ['audio'], // TEXT or AUDIO per session, never both
     systemInstruction: { parts: [{ text: 'You are a history tutor.' }] },
@@ -186,7 +191,7 @@ Browser (Astro/Svelte)              Cloud Run (Hono/TS)
                                    └──────────────────────┘
                                    ┌──────────────────────┐
                                    │ Firestore (profiles)  │
-                                   │ Imagen 3 (portraits)  │
+                                   │ Gemini 3.1 (portraits)  │
                                    └──────────────────────┘
 ```
 
@@ -260,7 +265,7 @@ Affective dialog handles emotional modulation; prompt handles role shifts.
 │  [blurred color theme bg]   │
 │  ┌───────────────────────┐  │
 │  │  Character Portrait   │  │
-│  │  (Imagen-generated)   │  │
+│  │  (Gemini-generated)   │  │
 │  └───────────────────────┘  │
 │  ┌───────────────────────┐  │
 │  │  Live Subtitles       │  │
@@ -274,7 +279,7 @@ Affective dialog handles emotional modulation; prompt handles role shifts.
 └─────────────────────────────┘
 ```
 
-Color theme: Gemini generates palette from era → Imagen uses for portrait + bg blur. Subtitles always visible (accessibility).
+Color theme: Gemini generates palette from era → Gemini 3.1 generates portrait + bg blur. Subtitles always visible (accessibility).
 
 ---
 
@@ -343,7 +348,8 @@ Pedagogy from `/Volumes/BIWIN/CODES/expo/apps/studybit/`:
 | Var | Where | Purpose |
 |-----|-------|---------|
 | `GEMINI_API_KEY` | Cloud Run (secret) | Gemini Live API auth |
-| `PUBLIC_BACKEND_WS_URL` | `.env.production` | WebSocket URL for backend |
+| `PUBLIC_BACKEND_WS_URL` | `.env.production` | `wss://past-live.ngoquochuy.com/ws` (prod) |
+| `ALLOWED_ORIGIN` | Cloud Run env | `https://past-live.ngoquochuy.com` |
 | `GOOGLE_CLOUD_PROJECT` | Cloud Run | Firestore project |
 | `PUBLIC_POSTHOG_KEY` | `.env.production` | Analytics |
 
@@ -356,8 +362,8 @@ pnpm dev --filter past-live           # Frontend dev
 pnpm build --filter past-live         # Frontend build
 wrangler deploy                       # Deploy frontend
 
-# Backend (separate repo — /Volumes/BIWIN/CODES/past-live-backend/)
-gcloud run deploy past-live-backend --source . --region us-central1
+# Backend (apps/past-live/server/)
+cd apps/past-live/server && gcloud run deploy past-live-backend --source . --region us-central1
 ```
 
 ---
