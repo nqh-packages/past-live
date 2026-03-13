@@ -1,107 +1,15 @@
 ---
 /**
  * @what - Post-session summary screen
- * @why - Debrief: dispatch status → prose summary → key facts → next briefing
+ * @why - Renders debrief via SummaryView island which reads sessionStorage artifact
  */
+export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
-
-const summary = {
-  duration: "12:34",
-  status: "survived",
-  keyFacts: [
-    "The chain across the Golden Horn was Constantinople's primary naval defense",
-    "Mehmed II dragged 70 ships overland to bypass the chain",
-    "Genoese mercenaries held the sea walls until the end",
-  ],
-  comparison: {
-    yourCall: "Hold the harbor",
-    reality: "Mehmed bypassed it entirely. Constantinople fell on May 29, 1453.",
-  },
-  nextScenarios: [
-    { id: "reformation-1517", title: "The Reformation", year: "1517" },
-    { id: "ottoman-golden-age-1520", title: "Ottoman Golden Age", year: "1520" },
-    { id: "fall-of-rome-476", title: "Fall of Rome", year: "476 AD" },
-  ],
-};
+import SummaryView from "@/components/SummaryView.svelte";
 ---
 
 <BaseLayout title="Past, Live — Transmission Ended">
   <main class="flex flex-col min-h-screen px-5 py-8 max-w-md mx-auto">
-
-    <!-- Dispatch header -->
-    <section class="w-full mb-10">
-      <div class="relative pl-[72px]">
-        <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
-        <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
-          &gt; transmission ended
-        </div>
-        <div class="font-mono text-[10px] text-foreground/30 mt-1">
-          &gt; session duration: {summary.duration}
-        </div>
-        <div class="font-mono text-[10px] text-foreground/30 mt-1">
-          &gt; advisor status: {summary.status}
-        </div>
-      </div>
-    </section>
-
-    <!-- Gilded Ruin: prose summary -->
-    <section class="mb-12">
-      <p class="font-serif italic text-foreground text-lg leading-relaxed">
-        The harbor fell. But you held the walls longer than Constantine himself.
-        Not bad for a first briefing.
-      </p>
-    </section>
-
-    <!-- Key Facts -->
-    <section class="mb-12">
-      <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">KEY FACTS</h2>
-      <ul class="space-y-3">
-        {summary.keyFacts.map((fact) => (
-          <li class="font-mono text-sm text-foreground/40 leading-relaxed pl-4 border-l border-accent/15">
-            {fact}
-          </li>
-        ))}
-      </ul>
-    </section>
-
-    <!-- What Actually Happened -->
-    <section class="mb-12">
-      <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">WHAT ACTUALLY HAPPENED</h2>
-      <div class="font-mono text-sm space-y-2">
-        <p>
-          <span class="text-accent">your call:</span>
-          <span class="text-foreground/40 ml-2">{summary.comparison.yourCall}</span>
-        </p>
-        <p>
-          <span class="text-accent">reality:</span>
-          <span class="text-foreground ml-2">{summary.comparison.reality}</span>
-        </p>
-      </div>
-    </section>
-
-    <!-- Next Briefing -->
-    <section class="mb-12">
-      <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">NEXT BRIEFING</h2>
-      <div class="flex flex-col gap-3">
-        {summary.nextScenarios.map((s) => (
-          <a
-            href={`/session?scenario=${s.id}`}
-            class="border border-border rounded-sm px-4 py-3 font-mono text-sm text-foreground/30 hover:text-foreground hover:border-accent/20 transition-colors"
-          >
-            &gt; {s.title}, {s.year}
-          </a>
-        ))}
-      </div>
-    </section>
-
-    <!-- CTA -->
-    <section class="text-center mt-auto pb-8">
-      <a
-        href="/"
-        class="inline-block border border-accent/30 text-accent font-mono text-[11px] tracking-[0.12em] uppercase px-6 py-3 rounded-sm hover:bg-accent/5 transition-colors"
-      >
-        new session
-      </a>
-    </section>
+    <SummaryView client:load />
   </main>
 </BaseLayout>

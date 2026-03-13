@@ -1,16 +1,43 @@
 ---
 /**
  * @what - Session screen for Past, Live
- * @why - In-session UI: portrait, subtitles, mic, text input
+ * @why - In-session UI: SessionManager lifecycle + portrait + subtitles + mic + text input
  */
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import SessionManager from "@/components/SessionManager.svelte";
 import MicButton from "@/components/MicButton.svelte";
 import SubtitleDisplay from "@/components/SubtitleDisplay.svelte";
 import SessionInput from "@/components/SessionInput.svelte";
+
+const url = new URL(Astro.request.url);
+const scenarioId = url.searchParams.get("scenario") ?? undefined;
+const topic = url.searchParams.get("topic") ?? undefined;
+
+// VITE_* not available in Svelte islands — must pass as prop from Astro page
+const backendWsUrl = import.meta.env.PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8787/ws";
+
+// Build human-readable dispatch line
+const dispatchLabel = scenarioId
+  ? {
+      "constantinople-1453": "constantinople 1453 · emperor's advisor",
+      "moon-landing-1969": "apollo 11 · mission control",
+      "mongol-empire-1206": "mongol steppe 1206 · khan's rival",
+    }[scenarioId] ?? scenarioId
+  : topic
+  ? `open study: ${topic}`
+  : "open session";
 ---
 
 <BaseLayout title="Past, Live — Session Active">
+  <!-- SessionManager: invisible island that owns WS lifecycle + overlays -->
+  <SessionManager
+    client:load
+    scenarioId={scenarioId}
+    topic={topic}
+    backendWsUrl={backendWsUrl}
+  />
+
   <main class="flex flex-col items-center min-h-screen px-5 py-8 max-w-md mx-auto">
     <!-- Dispatch status header -->
     <div class="w-full mb-6">
@@ -20,10 +47,7 @@ import SessionInput from "@/components/SessionInput.svelte";
           &gt; session active
         </div>
         <div class="font-mono text-[10px] text-foreground/30 mt-1">
-          &gt; constantinople 1453 · emperor's advisor
-        </div>
-        <div class="font-mono text-[10px] text-foreground/30 mt-1">
-          &gt; 14:00 remaining
+          &gt; {dispatchLabel}
         </div>
       </div>
     </div>
