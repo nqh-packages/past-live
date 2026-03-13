@@ -1,4 +1,4 @@
-# Past,Live
+# Past, Live
 
 History role-play tutor via Gemini Live API. Real-time voice conversation with historical characters. Camera opt-in only (demo for judges, skippable for users). Text input available alongside voice.
 
@@ -33,7 +33,7 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 | Art | Gemini → color theme, Imagen 3 → character portrait | Full-stack Google |
 | Demo scenarios | Constantinople 1453, Moon Landing 1969, Mongol Empire 1206 | 3 diverse regions/eras |
 | Warm-up | Agent-generated from previous session; first visit: name + age | Cannot skip — continuous data collection |
-| App name | **Past,Live** (slug: `past-live`) | Comma = pause. Reads as command: "Past, live." |
+| App name | **Past, Live** (slug: `past-live`) | Comma = pause. Reads as command: "Past, live." |
 | Naming style | "Past" (muted/serif) + "Live" (bright/bold) | Visual contrast |
 
 ---

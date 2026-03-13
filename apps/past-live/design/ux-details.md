@@ -1,4 +1,4 @@
-# Past,Live — UX Details
+# Past, Live — UX Details
 
 Comprehensive UX decisions from persona council validation (2026-03-13). 6 personas tested, 8 decisions made.
 
@@ -122,7 +122,7 @@ Now — WHERE do we yeet them?"
 
 ## 4. Instant Scene — Zero Onboarding
 
-**Problem:** Every student persona said slow startup = instant quit. Diego: "If I see 'Welcome to Past,Live,' I'm out."
+**Problem:** Every student persona said slow startup = instant quit. Diego: "If I see 'Welcome to Past, Live,' I'm out."
 
 ### First Visit Flow
 

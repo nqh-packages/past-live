@@ -1,6 +1,6 @@
 # Persona Council Verdict
 
-**Evaluated:** Past,Live — real-time voice + camera AI history role-play tutor
+**Evaluated:** Past, Live — real-time voice + camera AI history role-play tutor
 **Date:** 2026-03-13
 **Personas:** 6 (Maya 15 enthusiast, Tomás 16 reluctant, Aisha 14 pragmatist, Jun 17 cautious/ESL, Zara 42 skeptic parent, Diego 13 ADHD)
 **Research goal:** Feature validation — would students actually use this, what brings them back, what turns them off
@@ -187,7 +187,7 @@ The probing system should stay in-character. Not "Good try! The answer is..." bu
 
 ### 5. First 30 seconds must be action, not onboarding
 
-No tutorials. No account creation flow. No "Welcome to Past,Live." Open → "What are you studying?" → student answers → "Constantinople, 1453. The walls have held for a thousand years. You are the emperor's last advisor. The Ottoman fleet is visible on the horizon. What do you do?" — under 30 seconds to scene.
+No tutorials. No account creation flow. No "Welcome to Past, Live." Open → "What are you studying?" → student answers → "Constantinople, 1453. The walls have held for a thousand years. You are the emperor's last advisor. The Ottoman fleet is visible on the horizon. What do you do?" — under 30 seconds to scene.
 
 ### 6. Scenario menu (post-hackathon)
 

@@ -1,4 +1,4 @@
-# Past,Live — Persona Profiles
+# Past, Live — Persona Profiles
 
 **Product**: Real-time voice + camera AI history tutor with role-play scenarios
 **Target**: Students aged 13-18 studying history

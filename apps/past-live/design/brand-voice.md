@@ -1,4 +1,4 @@
-# Past,Live — Brand Voice
+# Past, Live — Brand Voice
 
 Two registers. Same DNA. Pick by context.
 
@@ -98,7 +98,7 @@ Verbs that imply entering, not clicking. You cross a threshold.
 | Pattern | Why it fails |
 |---------|-------------|
 | "Learn history through immersive voice roleplay" | Feature description. Dead on arrival. |
-| "Past,Live makes studying fun!" | Tells instead of shows. Patronizing. |
+| "Past, Live makes studying fun!" | Tells instead of shows. Patronizing. |
 | "Powered by Gemini Live API" | Tech spec, not voice. Save for README. |
 | "Ready to explore the past?" | Generic. Could be any history app. |
 | "An AI that brings history to life" | "Brings to life" is a dead metaphor. History is already alive — that's the point. |
