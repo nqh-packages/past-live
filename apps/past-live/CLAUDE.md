@@ -60,7 +60,8 @@ All decisions made by Huy during concept/research phase (2026-03-13, 2026-03-14)
 | Backend | Hono (TS) on Cloud Run | `apps/past-live/server/` — WebSocket relay to Gemini |
 | AI Voice | Gemini Live API (`gemini-2.5-flash-native-audio-preview-12-2025`) | Real-time voice + sparse vision |
 | AI Image | `gemini-3.1-flash-image-preview` | Character portraits + color themes |
-| Profile DB | Firestore | Student profiles, session history |
+| Profile DB | Firestore (`past-live-490122`, EU eur3) | Student profiles, session history |
+| Auth | Clerk (`@clerk/astro`) | Anonymous-first, sign-up-later |
 | Frontend Host | Cloudflare Workers | Standard monorepo deploy |
 | Domain | `pastlive.site` (primary, **NOT YET REGISTERED**) + `past-live.ngoquochuy.com` (subdomain) | Porkbun account needs phone/email verification |
 | Monitoring | Sentry | Error tracking (currently disabled) |
@@ -211,9 +212,9 @@ Browser (Astro/Svelte)              Cloud Run (Hono/TS)
 | 2 | Scene image | `gemini-3.1-flash-image-preview` | Era-specific scene art |
 | 3 | Character portrait | `gemini-3.1-flash-image-preview` | Character portrait for call screen |
 | 4 | Voice conversation | `gemini-2.5-flash-native-audio-preview-12-2025` | Live API session (real-time voice) |
-| 5 | **[Phase 2]** Post-call summary | `gemini-3-flash-preview` | Transcript → key facts |
+| 5 | Post-call summary | `gemini-3-flash-preview` | Transcript → keyFacts, outcomeComparison, characterMessage, suggestedCalls |
 
-**Phase 1 total**: 3 non-Live calls + 1 Live session = 4 calls
+**Per session**: 3 non-Live calls + 1 Live session + 1 post-call summary = 5 calls
 
 ---
 
@@ -467,7 +468,7 @@ interface StudentProfile {
 
 ```typescript
 type ClientMessage =
-  | { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string }
+  | { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string; characterName?: string; historicalSetting?: string; studentId?: string }
   | { type: 'audio'; data: string; mimeType: 'audio/pcm;rate=16000' }
   | { type: 'audio_end' }       // relay sends Gemini audioStreamEnd
   | { type: 'text'; text: string }
@@ -486,12 +487,12 @@ type ServerMessage =
   | { type: 'speaker_switch'; speaker: 'character'; name: string }
   | { type: 'choices'; choices: { title: string; description: string }[] }
   | { type: 'error'; message: string }
-  | { type: 'ended'; reason: string };
+  | { type: 'ended'; reason: string; summary?: PostCallSummary };
 ```
 
 | Rule | Detail |
 |------|--------|
-| `start` payload | Must include exactly ONE of `scenarioId` or `topic`. Optional `voiceName` |
+| `start` payload | Must include exactly ONE of `scenarioId` or `topic`. Optional `voiceName`, `characterName`, `historicalSetting`, `studentId` |
 | Scenario cards | Use `scenarioId` |
 | Freeform topic | Use `topic` |
 | `audio_end` | Browser sends when user mutes mic; relay maps to `audioStreamEnd` |
@@ -550,19 +551,13 @@ type ServerMessage =
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Phase 1** | Feedback fixes + call metaphor pivot + tool calling | In progress |
-| **Phase 2** | Judge-impressors | TODO |
+| **Phase 1** | Call metaphor pivot + tool calling | Done |
+| **Phase 2** | Summary pipeline, Firestore, Clerk, share card | Done |
 
-#### Phase 2 TODO
+#### Remaining (stretch)
 
-- [ ] **Firestore profiles** — StudentProfile schema, name/age collection, session history
-- [ ] **Post-call Gemini summary** — Send transcript to Flash, extract key facts
-- [ ] **Returning visit warm-up** — Character references past calls
-- [ ] **Student profile persistence** — Save learning patterns, personality to Firestore
-- [ ] **Downloadable share card** — Character's farewell as 9:16 image. Download button outside card
+- [ ] **Returning visit warm-up** — Inject profile history into system prompt so character references past calls
 - [ ] **Preset rotation** — Firestore pool of person+moment cards, rotate 3 per visit
-- [ ] **Persistent avatar** — Top-right corner. Links to Clerk auth
-- [ ] **Auth strategy** — Clerk auth, profile in Firestore. Anonymous-first, sign-up-later
 - [ ] **Content safety blocklist** — Flash + server-side blocked callers
 
 ---
@@ -610,7 +605,10 @@ Pedagogy from `/Volumes/BIWIN/CODES/expo/apps/studybit/`:
 | `GEMINI_API_KEY` | Cloud Run (secret) | Gemini Live API auth |
 | `PUBLIC_BACKEND_WS_URL` | `.env.production` | `wss://past-live.ngoquochuy.com/ws` (prod) |
 | `ALLOWED_ORIGIN` | Cloud Run env | `https://pastlive.site,https://past-live.ngoquochuy.com` |
-| `GOOGLE_CLOUD_PROJECT` | Cloud Run | Firestore project |
+| `GOOGLE_CLOUD_PROJECT` | Cloud Run env | Firestore project (`past-live-490122`) |
+| `FIRESTORE_EMULATOR_HOST` | Server `.env` (dev only) | Local Firestore emulator |
+| `PUBLIC_CLERK_PUBLISHABLE_KEY` | `.env` + `wrangler.jsonc` | Clerk frontend auth |
+| `CLERK_SECRET_KEY` | `.env` + `.dev.vars` | Clerk backend auth |
 | `PUBLIC_POSTHOG_KEY` | `.env.production` | Analytics |
 
 ---
