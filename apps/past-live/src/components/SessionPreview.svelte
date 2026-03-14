@@ -37,6 +37,9 @@
 
   // ─── Overlay state ─────────────────────────────────────────────────────────
 
+  interface ClarifyOption { title: string; description: string }
+  interface BlockedAlternative { title: string; description: string }
+
   let isOpen = $state(false);
   let isLoading = $state(false);
   let loadError = $state('');
@@ -47,6 +50,8 @@
   let editTopic = $state('');
   let editNotes = $state('');
   let micEnabled = $state(true);
+  let clarifyOptions = $state<ClarifyOption[]>([]);
+  let blockedAlternatives = $state<BlockedAlternative[]>([]);
 
   // ─── Event listeners ───────────────────────────────────────────────────────
 
@@ -89,6 +94,8 @@
     editNotes = '';
     previewScenarioId = undefined;
     previewTopic = '';
+    clarifyOptions = [];
+    blockedAlternatives = [];
   }
 
   async function openPreview(topic: string) {
@@ -98,6 +105,8 @@
     isLoading = true;
     loadError = '';
     preview = null;
+    clarifyOptions = [];
+    blockedAlternatives = [];
     await fetchPreview(topic);
   }
 
@@ -115,6 +124,8 @@
   async function fetchPreview(topic: string, notes?: string) {
     isLoading = true;
     loadError = '';
+    clarifyOptions = [];
+    blockedAlternatives = [];
     try {
       const body: Record<string, string> = { topic };
       if (notes?.trim()) body['notes'] = notes.trim();
@@ -127,16 +138,31 @@
 
       if (!res.ok) throw new Error(`status ${res.status}`);
 
-      const data = await res.json() as {
-        metadata?: { topic?: string; userRole?: string; characterName?: string;
-          historicalSetting?: string; year?: string; context?: string;
-          colorPalette?: string[] };
-        sceneImage?: string | null; avatarImage?: string | null;
-        partial?: boolean; error?: string;
-      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = await res.json() as Record<string, any>;
 
-      if (data.error) throw new Error(data.error);
-      const meta = data.metadata;
+      if (data['error']) throw new Error(data['error'] as string);
+
+      // Handle clarify response — vague topic, Flash offers 3 specific options
+      if (data['type'] === 'clarify' && Array.isArray(data['options'])) {
+        clarifyOptions = data['options'] as ClarifyOption[];
+        isOpen = false; // Close overlay — clarify shows inline on /app
+        return;
+      }
+
+      // Handle blocked response — blocked caller, offer alternatives
+      if (data['type'] === 'blocked' && Array.isArray(data['alternatives'])) {
+        blockedAlternatives = data['alternatives'] as BlockedAlternative[];
+        isOpen = false; // Close overlay — blocked shows inline on /app
+        return;
+      }
+
+      // Handle ready response — full preview with metadata
+      const meta = data['metadata'] as {
+        topic?: string; userRole?: string; characterName?: string;
+        historicalSetting?: string; year?: string; context?: string;
+        colorPalette?: string[];
+      } | undefined;
       if (!meta?.userRole || !meta?.characterName) throw new Error('incomplete preview data');
 
       preview = {
@@ -147,8 +173,8 @@
         year: meta.year ?? '',
         context: meta.context ?? '',
         colorPalette: meta.colorPalette ?? [],
-        sceneImage: data.sceneImage ?? undefined,
-        avatar: data.avatarImage ?? undefined,
+        sceneImage: (data['sceneImage'] as string) ?? undefined,
+        avatar: (data['avatarImage'] as string) ?? undefined,
       };
     } catch (err) {
       loadError = err instanceof Error ? err.message : 'preview failed';
@@ -186,6 +212,20 @@
     previewTopic = editTopic.trim();
     previewScenarioId = undefined;
     await fetchPreview(previewTopic, editNotes);
+  }
+
+  function selectClarifyOption(option: ClarifyOption) {
+    haptic.trigger('light');
+    clarifyOptions = [];
+    blockedAlternatives = [];
+    openPreview(option.title);
+  }
+
+  function selectBlockedAlternative(alt: BlockedAlternative) {
+    haptic.trigger('light');
+    clarifyOptions = [];
+    blockedAlternatives = [];
+    openPreview(alt.title);
   }
 
   async function retry() {
@@ -227,6 +267,85 @@
     window.location.href = `/session?${params.toString()}`;
   }
 </script>
+
+<!-- Inline clarify: vague topic → pick a specific person+moment -->
+{#if clarifyOptions.length > 0}
+  <div class="fixed inset-x-0 bottom-0 z-40 p-4 sm:p-6 pointer-events-none">
+    <div class="max-w-sm mx-auto pointer-events-auto">
+      <div class="bg-surface border border-border rounded-sm p-5 space-y-4">
+        <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
+          &gt; who do you want to call?
+        </div>
+        <p class="font-mono text-[11px] text-foreground/40 leading-relaxed">
+          We found a few people from that era. Pick one:
+        </p>
+        <div class="flex flex-col gap-2">
+          {#each clarifyOptions as option (option.title)}
+            <button
+              type="button"
+              onclick={() => selectClarifyOption(option)}
+              class="text-left border border-border rounded-sm px-4 py-3 hover:border-accent/30 hover:bg-accent/5 transition-colors"
+              aria-label="Call {option.title}"
+            >
+              <span class="font-mono text-sm text-foreground/70">&gt; {option.title}</span>
+              <br />
+              <span class="font-mono text-[10px] text-foreground/30">{option.description}</span>
+            </button>
+          {/each}
+        </div>
+        <button
+          type="button"
+          onclick={() => { clarifyOptions = []; }}
+          class="font-mono text-[10px] text-foreground/20 tracking-[0.1em] uppercase hover:text-foreground/40 transition-colors"
+          aria-label="Dismiss options"
+        >
+          [ cancel ]
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- Inline blocked: blocked caller → try calling a witness/resistor instead -->
+{#if blockedAlternatives.length > 0}
+  <div class="fixed inset-x-0 bottom-0 z-40 p-4 sm:p-6 pointer-events-none">
+    <div class="max-w-sm mx-auto pointer-events-auto">
+      <div class="bg-surface border border-border rounded-sm p-5 space-y-4">
+        <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
+          &gt; call failed
+        </div>
+        <p class="font-mono text-[11px] text-foreground/40 leading-relaxed">
+          This number is not in service.
+        </p>
+        <p class="font-mono text-[10px] text-foreground/25 leading-relaxed">
+          Try calling someone who was there:
+        </p>
+        <div class="flex flex-col gap-2">
+          {#each blockedAlternatives as alt (alt.title)}
+            <button
+              type="button"
+              onclick={() => selectBlockedAlternative(alt)}
+              class="text-left border border-border rounded-sm px-4 py-3 hover:border-accent/30 hover:bg-accent/5 transition-colors"
+              aria-label="Call {alt.title}"
+            >
+              <span class="font-mono text-sm text-foreground/70">&gt; {alt.title}</span>
+              <br />
+              <span class="font-mono text-[10px] text-foreground/30">{alt.description}</span>
+            </button>
+          {/each}
+        </div>
+        <button
+          type="button"
+          onclick={() => { blockedAlternatives = []; }}
+          class="font-mono text-[10px] text-foreground/20 tracking-[0.1em] uppercase hover:text-foreground/40 transition-colors"
+          aria-label="Dismiss blocked message"
+        >
+          [ cancel ]
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if isOpen}
   <!-- Backdrop -->

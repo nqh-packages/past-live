@@ -12,41 +12,23 @@
   const haptic = createWebHaptics();
   onDestroy(() => haptic.destroy());
 
-  const FALLBACK_SUMMARY: SummaryArtifact = {
-    scenarioId: 'constantinople-1453',
-    topic: '',
-    scenarioTitle: 'Fall of Constantinople',
-    role: 'Constantine XI',
-    durationMs: 754000,
-    summaryFacts: [
-      'Mehmed II moved 72 Ottoman ships overland on greased logs to bypass the harbor chain.',
-      'Constantinople had fewer than 7,000 defenders against 80,000 Ottoman troops.',
-      'The city had survived sieges for over a thousand years before finally falling on May 29, 1453.',
-    ],
-    actualOutcome:
-      'Constantinople fell on May 29, 1453. Mehmed II entered the city through the Kerkoporta gate, left accidentally open. Constantine XI died fighting in the streets. The city became Istanbul, capital of the Ottoman Empire.',
-    yourCall: 'Hold the harbor',
-    relatedScenarios: ['moon-landing-1969', 'mongol-empire-1206'],
-  };
-
   const SCENARIO_LABELS: Record<string, { person: string; era: string }> = {
     'constantinople-1453': { person: 'Constantine XI', era: 'Constantinople, 1453' },
     'moon-landing-1969': { person: 'Gene Kranz', era: 'Apollo 11, 1969' },
     'mongol-empire-1206': { person: 'Jamukha', era: 'Mongol Steppe, 1206' },
   };
 
-  let summary = $state<SummaryArtifact>(FALLBACK_SUMMARY);
+  let summary = $state<SummaryArtifact | null>(null);
   let loaded = $state(false);
 
   onMount(() => {
-    const artifact = loadSummaryArtifact();
-    if (artifact) summary = artifact;
+    summary = loadSummaryArtifact();
     loaded = true;
   });
 
-  const duration = $derived(formatDuration(summary.durationMs));
+  const duration = $derived(summary ? formatDuration(summary.durationMs) : '00:00');
   const relatedLinks = $derived(
-    summary.relatedScenarios
+    (summary?.relatedScenarios ?? [])
       .map((id) => {
         const label = SCENARIO_LABELS[id];
         if (!label) return null;
@@ -56,7 +38,7 @@
   );
 </script>
 
-{#if loaded}
+{#if loaded && summary}
   <!-- Call ended header -->
   <section class="w-full mb-10">
     <div class="relative pl-[72px]">
@@ -153,6 +135,20 @@
       call someone else
     </a>
   </section>
+{:else if loaded && !summary}
+  <!-- No call data found -->
+  <div class="flex flex-col items-center justify-center min-h-[40vh] gap-6">
+    <span class="font-mono text-[10px] text-foreground/20 tracking-[0.12em]">
+      &gt; no call data found
+    </span>
+    <a
+      href="/app"
+      class="inline-block border border-accent/30 text-accent font-mono text-[11px] tracking-[0.12em] uppercase px-6 py-3 rounded-sm hover:bg-accent/5 transition-colors"
+      aria-label="Go to home screen to start a call"
+    >
+      make a call
+    </a>
+  </div>
 {:else}
   <!-- Loading placeholder -->
   <div class="flex items-center justify-center min-h-[40vh]">

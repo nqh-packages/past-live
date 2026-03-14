@@ -227,6 +227,8 @@ export function sendAudio(base64Data: string): void {
 
 export function sendText(text: string): void {
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  addMessage('YOU', text);
+  appendInputTranscript(text);
   ws.send(JSON.stringify({ type: 'text', text }));
 }
 
