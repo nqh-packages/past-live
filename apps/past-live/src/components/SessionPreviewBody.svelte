@@ -201,7 +201,7 @@
         <span
           class="text-foreground/25 flex-shrink-0"
           style={sMuted ? `color: ${sMuted}` : ''}
-        >you are:</span>
+        >to them, you're:</span>
         <span
           class="text-foreground/70"
           style={sFg ? `color: ${sFg}` : ''}

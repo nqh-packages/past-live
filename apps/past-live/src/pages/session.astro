@@ -6,7 +6,7 @@
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SessionManager from "@/components/SessionManager.svelte";
-import MicButton from "@/components/MicButton.svelte";
+import SessionCallControls from "@/components/SessionCallControls.svelte";
 import ChatLog from "@/components/ChatLog.svelte";
 import SpeakingIndicator from "@/components/SpeakingIndicator.svelte";
 import SessionTimer from "@/components/SessionTimer.svelte";
@@ -183,9 +183,9 @@ const callLabel = scenarioId
       <SessionChoiceCards client:load />
     </div>
 
-    <!-- Call controls bottom bar — MicButton used until CallControls (Batch 3) is ready -->
+    <!-- Call controls: [speaker] [hang up] [mute] -->
     <div class="flex justify-center mb-3">
-      <MicButton client:load />
+      <SessionCallControls client:only="svelte" />
     </div>
 
     <!-- Text input — always visible, sends via WebSocket -->
