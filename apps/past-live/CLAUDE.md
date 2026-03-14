@@ -50,6 +50,8 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 | AI Image | `gemini-3.1-flash-image-preview` | Character portraits + color themes |
 | Profile DB | Firestore | Student profiles, session history |
 | Frontend Host | Cloudflare Workers | Standard monorepo deploy |
+| Domain | `pastlive.site` (primary, **NOT YET REGISTERED**) + `past-live.ngoquochuy.com` (subdomain) | Porkbun account needs phone/email verification first |
+| Registrar | Porkbun → Cloudflare NS | DNS via Cloudflare once registered |
 | Monitoring | Sentry | Error tracking |
 
 ---
@@ -490,7 +492,7 @@ Pedagogy from `/Volumes/BIWIN/CODES/expo/apps/studybit/`:
 |-----|-------|---------|
 | `GEMINI_API_KEY` | Cloud Run (secret) | Gemini Live API auth |
 | `PUBLIC_BACKEND_WS_URL` | `.env.production` | `wss://past-live.ngoquochuy.com/ws` (prod) |
-| `ALLOWED_ORIGIN` | Cloud Run env | `https://past-live.ngoquochuy.com` |
+| `ALLOWED_ORIGIN` | Cloud Run env | `https://pastlive.site,https://past-live.ngoquochuy.com` |
 | `GOOGLE_CLOUD_PROJECT` | Cloud Run | Firestore project |
 | `PUBLIC_POSTHOG_KEY` | `.env.production` | Analytics |
 
