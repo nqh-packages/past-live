@@ -31,7 +31,7 @@
   class="h-full overflow-y-auto border-l border-accent/10 pl-4 space-y-3 scroll-smooth"
   role="log"
   aria-live="polite"
-  aria-label="Session transcript"
+  aria-label="Call transcript"
 >
   {#if $status === 'connecting'}
     <p class="font-mono text-[11px] text-foreground/30 animate-pulse">

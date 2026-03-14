@@ -154,6 +154,48 @@ describe('parseClientMessage', () => {
         parseClientMessage(JSON.stringify({ type: 'start', studentName: 'Ana' })),
       ).toThrow('start requires exactly one of scenarioId or topic');
     });
+
+    it('parses start with voiceName alongside scenarioId', () => {
+      const msg = parseClientMessage(
+        JSON.stringify({ type: 'start', scenarioId: 'constantinople', voiceName: 'Gacrux' }),
+      );
+      expect(msg).toEqual<ClientMessage>({
+        type: 'start',
+        scenarioId: 'constantinople',
+        voiceName: 'Gacrux',
+      });
+    });
+
+    it('parses start with voiceName alongside topic', () => {
+      const msg = parseClientMessage(
+        JSON.stringify({ type: 'start', topic: 'moon landing', voiceName: 'Charon' }),
+      );
+      expect(msg).toEqual<ClientMessage>({
+        type: 'start',
+        topic: 'moon landing',
+        voiceName: 'Charon',
+      });
+    });
+
+    it('parses start without voiceName (backward compat)', () => {
+      const msg = parseClientMessage(
+        JSON.stringify({ type: 'start', scenarioId: 'moon' }),
+      );
+      expect(msg).toEqual<ClientMessage>({ type: 'start', scenarioId: 'moon' });
+      expect((msg as { voiceName?: string }).voiceName).toBeUndefined();
+    });
+
+    it('parses start with all optional fields: studentName + voiceName + scenarioId', () => {
+      const msg = parseClientMessage(
+        JSON.stringify({ type: 'start', scenarioId: 'mongol', studentName: 'Luca', voiceName: 'Algenib' }),
+      );
+      expect(msg).toEqual<ClientMessage>({
+        type: 'start',
+        scenarioId: 'mongol',
+        studentName: 'Luca',
+        voiceName: 'Algenib',
+      });
+    });
   });
 });
 
@@ -203,5 +245,44 @@ describe('serializeServerMessage', () => {
     const result = serializeServerMessage({ type: 'output_transcription', text: 'x' });
     expect(result).not.toContain('"subtitle"');
     expect(result).toContain('"output_transcription"');
+  });
+
+  it('serializes speaker_switch message with character speaker and name', () => {
+    const result = serializeServerMessage({
+      type: 'speaker_switch',
+      speaker: 'character',
+      name: 'A MESSENGER',
+    });
+    expect(JSON.parse(result)).toEqual<ServerMessage>({
+      type: 'speaker_switch',
+      speaker: 'character',
+      name: 'A MESSENGER',
+    });
+  });
+
+  it('serializes choices message with title and description array', () => {
+    const result = serializeServerMessage({
+      type: 'choices',
+      choices: [
+        { title: 'Hold the walls', description: 'Focus all defenses on the outer walls.' },
+        { title: 'Negotiate', description: 'Send an envoy to the Ottoman camp.' },
+      ],
+    });
+    expect(JSON.parse(result)).toEqual<ServerMessage>({
+      type: 'choices',
+      choices: [
+        { title: 'Hold the walls', description: 'Focus all defenses on the outer walls.' },
+        { title: 'Negotiate', description: 'Send an envoy to the Ottoman camp.' },
+      ],
+    });
+  });
+
+  it('serializes choices message with a single choice', () => {
+    const result = serializeServerMessage({
+      type: 'choices',
+      choices: [{ title: 'Stand firm', description: 'Remain in position.' }],
+    });
+    const parsed = JSON.parse(result) as ServerMessage;
+    expect(parsed.type).toBe('choices');
   });
 });

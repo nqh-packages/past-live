@@ -3,7 +3,7 @@
  * @why - Avatar prompt requires characterName from the Flash JSON result; running all
  *        3 calls in parallel gave the avatar generator "A historical figure" as the
  *        only name hint, causing empty/garbage images for open topics.
- * @exports - sessionPreviewRoute
+ * @exports - sessionPreviewRoute, PreviewMetadata, SessionPreviewResponse, FlashResponse
  */
 
 import { Hono } from 'hono';
@@ -11,6 +11,8 @@ import { bodyLimit } from 'hono/body-limit';
 import { GoogleGenAI } from '@google/genai';
 import { buildSceneImagePrompt } from './prompts/scene-image.js';
 import { buildCharacterAvatarPrompt } from './prompts/character-avatar.js';
+import { VOICE_SELECTION_PROMPT } from './behavioral-rules.js';
+import { logger } from './logger.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,13 +40,28 @@ interface SessionPreviewRequest {
 
 export interface PreviewMetadata {
   topic: string;
+  /**
+   * How the character would describe the stranger who called them.
+   * NOT a student role — the student has no assigned role.
+   * e.g. "A stranger who called in the dead of night"
+   */
   userRole: string;
   characterName: string;
   historicalSetting: string;
   year: number;
   context: string;
   colorPalette: string[]; // 5 OKLCH values
+  /** Voice name from the 30-voice catalog, selected by Flash. */
+  voiceName: string;
+  /** 2-3 key decision moments for announce_choice. */
+  decisionPoints: { title: string; description: string }[];
 }
+
+/** Flash returns one of three response types based on topic specificity and safety. */
+export type FlashResponse =
+  | { type: 'ready'; metadata: PreviewMetadata }
+  | { type: 'clarify'; options: { title: string; description: string }[] }
+  | { type: 'blocked'; alternatives: { title: string; description: string }[] };
 
 export interface SessionPreviewResponse {
   metadata: PreviewMetadata;
@@ -57,28 +74,66 @@ export interface SessionPreviewResponse {
 
 function buildMetadataPrompt(topic: string): string {
   return `
-You are setting up a historical role-play session for a student.
+You are setting up a historical voice call for a student who wants to speak with a historical figure.
 
 The student's topic: "${topic}"
 
-Return ONLY valid JSON matching this exact schema:
+FIRST: Determine the response type:
+- If the topic maps to ONE specific historical person at ONE specific moment with a clear decision point, return type "ready".
+- If the topic is broad (spans years, multiple events, or no clear single decision), return type "clarify" with 3 specific people+moments to call.
+- If the person is a perpetrator of genocide, mass violence, or serial crime (e.g. Hitler, Pol Pot, serial killers), return type "blocked" with 3 alternative people who witnessed or resisted the same events.
+
+For "ready", return ONLY valid JSON matching this exact schema:
 {
-  "topic": "short topic title (e.g. Fall of Constantinople, 1453)",
-  "userRole": "the student's role in 5-10 words (e.g. Emperor's trusted advisor)",
-  "characterName": "the AI character's name in ALL CAPS (e.g. CONSTANTINE XI)",
-  "historicalSetting": "location and era in one phrase (e.g. Constantinople, 1453)",
-  "year": 1453,
-  "context": "2-3 sentences. Plain language. What the situation is and what is at stake.",
-  "colorPalette": ["oklch(10% 0.04 45)", "oklch(16% 0.06 45)", "oklch(65% 0.18 45)", "oklch(90% 0.04 45)", "oklch(38% 0.10 45)"]
+  "type": "ready",
+  "metadata": {
+    "topic": "short topic title (e.g. Fall of Constantinople, 1453)",
+    "userRole": "How the character would describe the stranger who called them. NOT the student's role. e.g. 'A stranger who called in the dead of night' or 'An unknown voice on the comm'",
+    "characterName": "the AI character's name in ALL CAPS (e.g. CONSTANTINE XI)",
+    "historicalSetting": "location and era in one phrase (e.g. Constantinople, 1453)",
+    "year": 1453,
+    "context": "2-3 sentences. Plain language. What the situation is and what is at stake.",
+    "colorPalette": ["oklch(10% 0.04 45)", "oklch(16% 0.06 45)", "oklch(65% 0.18 45)", "oklch(90% 0.04 45)", "oklch(38% 0.10 45)"],
+    "voiceName": "one voice name from the catalog below",
+    "decisionPoints": [
+      { "title": "choice title (the option)", "description": "what it means and its consequence" },
+      { "title": "...", "description": "..." }
+    ]
+  }
 }
 
-colorPalette must be exactly 5 OKLCH color strings (CSS oklch() format) matching the era's atmosphere. STRICT lightness rules:
+For "clarify", return:
+{
+  "type": "clarify",
+  "options": [
+    { "title": "Person + Year (e.g. Fall of Saigon, 1975)", "description": "The specific decision they faced" },
+    { "title": "...", "description": "..." },
+    { "title": "...", "description": "..." }
+  ]
+}
+
+For "blocked", return:
+{
+  "type": "blocked",
+  "alternatives": [
+    { "title": "Alternative person + Year", "description": "Brief: who they were and what they did" },
+    { "title": "...", "description": "..." },
+    { "title": "...", "description": "..." }
+  ]
+}
+
+colorPalette rules (for "ready" only):
   [0] background: lightness 8-15% (very dark)
   [1] surface: lightness 12-20% (dark panel)
   [2] accent: lightness 55-75% (vibrant era color)
   [3] foreground: lightness 85-95% (readable text)
   [4] muted: lightness 30-45% (subtle/secondary)
 The foreground MUST have at least 7:1 contrast ratio against the background.
+
+decisionPoints: 2-3 concrete choices the student will face at the key moment. Each has title (the option) and description (what it means and its consequence).
+
+${VOICE_SELECTION_PROMPT}
+
 No markdown. No code fences. Just the JSON object.
 `.trim();
 }
@@ -88,7 +143,7 @@ No markdown. No code fences. Just the JSON object.
 const PRESET_FALLBACKS: Record<string, PreviewMetadata> = {
   'constantinople-1453': {
     topic: 'Fall of Constantinople, 1453',
-    userRole: "Emperor's most trusted advisor",
+    userRole: 'A stranger who called in the dead of night',
     characterName: 'CONSTANTINE XI',
     historicalSetting: 'Constantinople, 1453',
     year: 1453,
@@ -101,10 +156,16 @@ const PRESET_FALLBACKS: Record<string, PreviewMetadata> = {
       'oklch(89% 0.04 47)',
       'oklch(48% 0.14 47)',
     ],
+    voiceName: 'Gacrux',
+    decisionPoints: [
+      { title: 'Reinforce the land walls', description: 'Concentrate 300 men at the breach. Harbor unguarded.' },
+      { title: 'Attempt a breakout north', description: 'Risk everything on escape. The city falls behind you.' },
+      { title: 'Negotiate surrender', description: 'Save lives. Lose the city. Mehmed may show mercy.' },
+    ],
   },
   'moon-landing-1969': {
     topic: 'Apollo 11 Moon Landing, 1969',
-    userRole: 'NASA Mission Control lead systems engineer',
+    userRole: 'An unknown voice on the comm',
     characterName: 'FLIGHT DIRECTOR KRANZ',
     historicalSetting: 'Houston Mission Control, 1969',
     year: 1969,
@@ -117,10 +178,15 @@ const PRESET_FALLBACKS: Record<string, PreviewMetadata> = {
       'oklch(92% 0.03 240)',
       'oklch(55% 0.12 240)',
     ],
+    voiceName: 'Charon',
+    decisionPoints: [
+      { title: 'Abort the landing', description: 'Safe return. Mission failed. Come back next year.' },
+      { title: 'Trust the pilot', description: '25 seconds. Armstrong can see the surface. Let him land.' },
+    ],
   },
   'mongol-empire-1206': {
     topic: 'Rise of the Mongol Empire, 1206',
-    userRole: 'Tribal chieftain with three clans uncommitted',
+    userRole: 'A stranger at the campfire before dawn',
     characterName: 'JAMUKHA',
     historicalSetting: 'Mongolian steppe, 1206',
     year: 1206,
@@ -133,12 +199,18 @@ const PRESET_FALLBACKS: Record<string, PreviewMetadata> = {
       'oklch(90% 0.04 68)',
       'oklch(52% 0.12 68)',
     ],
+    voiceName: 'Algenib',
+    decisionPoints: [
+      { title: 'Ride to Temujin', description: 'Join the empire. Your tribe survives. Your pride does not.' },
+      { title: 'Stand with Jamukha', description: 'Fight for freedom. History forgets your name. But you rode free.' },
+      { title: 'Demand terms', description: 'Negotiate a position. Risky — Temujin does not negotiate.' },
+    ],
   },
 };
 
 const GENERIC_FALLBACK: PreviewMetadata = {
   topic: 'A Historical Moment',
-  userRole: 'A key participant in history',
+  userRole: 'A stranger from the future',
   characterName: 'NARRATOR',
   historicalSetting: 'A pivotal moment in time',
   year: 0,
@@ -151,6 +223,8 @@ const GENERIC_FALLBACK: PreviewMetadata = {
     'oklch(88% 0.03 60)',
     'oklch(48% 0.07 60)',
   ],
+  voiceName: 'Charon',
+  decisionPoints: [],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -161,7 +235,7 @@ function resolveEffectiveTopic(request: SessionPreviewRequest): string {
   return preset?.topic ?? 'a historical moment';
 }
 
-export async function fetchMetadata(topic: string): Promise<PreviewMetadata> {
+export async function fetchFlashResponse(topic: string): Promise<FlashResponse> {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: FLASH_MODEL,
@@ -169,26 +243,33 @@ export async function fetchMetadata(topic: string): Promise<PreviewMetadata> {
   });
 
   const raw = response.text?.trim() ?? '';
-  // Strip markdown code fences if model wraps the JSON
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
-  const parsed = JSON.parse(cleaned) as PreviewMetadata;
+  const parsed = JSON.parse(cleaned) as FlashResponse;
 
-  // Validate required fields
+  if (parsed.type === 'clarify' || parsed.type === 'blocked') {
+    return parsed;
+  }
+
+  // Validate 'ready' response
+  const meta = (parsed as { type: 'ready'; metadata: PreviewMetadata }).metadata;
   if (
-    typeof parsed.topic !== 'string' ||
-    typeof parsed.userRole !== 'string' ||
-    typeof parsed.characterName !== 'string' ||
-    typeof parsed.historicalSetting !== 'string' ||
-    typeof parsed.year !== 'number' ||
-    typeof parsed.context !== 'string' ||
-    !Array.isArray(parsed.colorPalette) ||
-    parsed.colorPalette.length !== 5
+    typeof meta.topic !== 'string' ||
+    typeof meta.userRole !== 'string' ||
+    typeof meta.characterName !== 'string' ||
+    typeof meta.historicalSetting !== 'string' ||
+    typeof meta.year !== 'number' ||
+    typeof meta.context !== 'string' ||
+    !Array.isArray(meta.colorPalette) ||
+    meta.colorPalette.length !== 5 ||
+    typeof meta.voiceName !== 'string' ||
+    !Array.isArray(meta.decisionPoints)
   ) {
     throw new Error('Metadata response missing required fields');
   }
 
-  return parsed;
+  return parsed as FlashResponse;
 }
+
 
 async function fetchImage(prompt: string): Promise<string | null> {
   try {
@@ -198,7 +279,6 @@ async function fetchImage(prompt: string): Promise<string | null> {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
-    // Image model returns inlineData in the response parts
     const parts = response.candidates?.[0]?.content?.parts ?? [];
     for (const part of parts) {
       if (part.inlineData?.data) {
@@ -236,23 +316,32 @@ sessionPreviewRoute.post(
     const effectiveTopic = resolveEffectiveTopic(body);
 
     // ── Step 1: Flash JSON first — avatar image needs characterName ───────────
-    // Running all 3 in parallel left the avatar generator with no character name
-    // for open topics, producing empty/garbage results (ISSUE-015).
 
-    let metadata: PreviewMetadata;
+    let flashResponse: FlashResponse | null = null;
     let metadataFailed = false;
 
     try {
-      metadata = await fetchMetadata(effectiveTopic);
+      flashResponse = await fetchFlashResponse(effectiveTopic);
     } catch (err) {
       metadataFailed = true;
-      console.error('[session-preview] metadata call failed:', err);
-      // Use preset fallback if scenarioId known, else generic
-      metadata = (scenarioId && PRESET_FALLBACKS[scenarioId]) ?? GENERIC_FALLBACK;
+      logger.error({ event: 'metadata_failed', code: 'PREVIEW_METADATA_001', err, topic: effectiveTopic }, 'Flash metadata call failed');
+    }
+
+    // Return clarify/blocked responses immediately — no images needed
+    if (flashResponse && flashResponse.type !== 'ready') {
+      return c.json(flashResponse);
+    }
+
+    let metadata: PreviewMetadata;
+
+    if (flashResponse?.type === 'ready') {
+      metadata = flashResponse.metadata;
+    } else {
+      // Fallback: use preset or generic
+      metadata = (scenarioId ? PRESET_FALLBACKS[scenarioId] : undefined) ?? GENERIC_FALLBACK;
     }
 
     // ── Step 2: Scene image + avatar image in parallel ────────────────────────
-    // Both prompts now have full metadata context; partial failure is still graceful.
 
     const [sceneResult, avatarResult] = await Promise.allSettled([
       fetchImage(buildSceneImagePrompt(scenarioId, metadata.topic, metadata.historicalSetting)),
@@ -263,10 +352,10 @@ sessionPreviewRoute.post(
     const avatarImage = avatarResult.status === 'fulfilled' ? avatarResult.value : null;
 
     if (sceneResult.status === 'rejected') {
-      console.error('[session-preview] scene image call failed:', sceneResult.reason);
+      logger.error({ event: 'scene_image_failed', code: 'PREVIEW_IMAGE_001', err: sceneResult.reason }, 'Scene image call failed');
     }
     if (avatarResult.status === 'rejected') {
-      console.error('[session-preview] avatar call failed:', avatarResult.reason);
+      logger.error({ event: 'avatar_image_failed', code: 'PREVIEW_IMAGE_002', err: avatarResult.reason }, 'Avatar image call failed');
     }
 
     const partial = metadataFailed || sceneImage === null || avatarImage === null;

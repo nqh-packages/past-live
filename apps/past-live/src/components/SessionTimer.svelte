@@ -1,54 +1,40 @@
 <script lang="ts">
   /**
-   * @what - Session remaining time countdown — hidden until 5:00, accent at 2:00
-   * @why - Users need to know the 15-min hard limit; agent wraps up by ~14 min via prompt
-   * @note - Starts on session active. Format: "> 4:32 remaining"
+   * @what - Phone-call style elapsed timer, counts up from 00:00
+   * @why - Phone calls count up (00:04:32), not down — matches call metaphor
+   * @note - Always visible once session starts. Format: MM:SS
    */
   import { $isActive as isActive, $sessionStartTime as sessionStartTime } from '../stores/liveSession';
 
-  const SESSION_MAX_MS = 15 * 60 * 1000; // 15 minutes hard limit
-  const SHOW_THRESHOLD_MS = 5 * 60 * 1000; // show at 5:00 remaining
-  const ACCENT_THRESHOLD_MS = 2 * 60 * 1000; // accent color at 2:00 remaining
-
-  let remainingMs = $state(SESSION_MAX_MS);
-
-  const shouldShow = $derived(remainingMs <= SHOW_THRESHOLD_MS && $isActive);
-  const isUrgent = $derived(remainingMs <= ACCENT_THRESHOLD_MS);
-
-  const formattedTime = $derived.by(() => {
-    const totalSecs = Math.max(0, Math.ceil(remainingMs / 1000));
-    const mins = Math.floor(totalSecs / 60);
-    const secs = totalSecs % 60;
-    return `${mins}:${String(secs).padStart(2, '0')}`;
-  });
+  let elapsed = $state(0);
 
   $effect(() => {
     if (!$isActive) {
-      remainingMs = SESSION_MAX_MS;
+      elapsed = 0;
       return;
     }
-
-    const startTime = $sessionStartTime;
-    const id = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      remainingMs = Math.max(0, SESSION_MAX_MS - elapsed);
+    const start = $sessionStartTime;
+    // Set immediately so first render is not 0
+    elapsed = Math.floor((Date.now() - start) / 1000);
+    const interval = setInterval(() => {
+      elapsed = Math.floor((Date.now() - start) / 1000);
     }, 1000);
+    return () => clearInterval(interval);
+  });
 
-    return () => clearInterval(id);
+  const formatted = $derived.by(() => {
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   });
 </script>
 
-{#if shouldShow}
-  <div
-    class="font-mono text-[10px] tracking-[0.08em] transition-colors duration-500
-      {isUrgent ? 'text-accent animate-pulse' : 'text-foreground/30'}"
+{#if $isActive}
+  <span
+    class="font-mono text-[11px] text-foreground/40 tabular-nums"
     role="timer"
-    aria-label="Session time remaining"
-    aria-live="polite"
+    aria-label="Call duration {formatted}"
   >
-    &gt; {formattedTime} remaining
-    {#if isUrgent}
-      <span class="ml-1 text-accent/70">wrap up transmission</span>
-    {/if}
-  </div>
+    {formatted}
+  </span>
 {/if}

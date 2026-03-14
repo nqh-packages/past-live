@@ -1,7 +1,7 @@
 /**
  * Tests for session-preview.ts — Flash-first sequential flow
  * Verifies: metadata fetched before images, characterName passed to avatar prompt,
- * historicalSetting passed to scene prompt, fallback behavior.
+ * historicalSetting passed to scene prompt, fallback behavior, flash response types.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -10,11 +10,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockGenerateContent = vi.fn();
 
-vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: { generateContent: mockGenerateContent },
-  })),
-}));
+vi.mock('@google/genai', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@google/genai')>();
+  return {
+    ...actual,
+    GoogleGenAI: vi.fn().mockImplementation(() => ({
+      models: { generateContent: mockGenerateContent },
+    })),
+  };
+});
 
 // Capture prompt builder calls to verify correct args are forwarded
 vi.mock('./prompts/scene-image.js', () => ({
@@ -40,7 +44,7 @@ import type { PreviewMetadata } from './session-preview.js';
 
 const MOCK_METADATA: PreviewMetadata = {
   topic: 'French Revolution, 1789',
-  userRole: 'Revolutionary pamphleteer',
+  userRole: 'A stranger from beyond the barricades',
   characterName: 'ROBESPIERRE',
   historicalSetting: 'Paris, 1789',
   year: 1789,
@@ -52,18 +56,32 @@ const MOCK_METADATA: PreviewMetadata = {
     'oklch(88% 0.04 30)',
     'oklch(35% 0.10 30)',
   ],
+  voiceName: 'Algieba',
+  decisionPoints: [
+    { title: 'Support the Terror', description: 'Purge the enemies of the revolution.' },
+    { title: 'Seek moderation', description: 'Halt the executions. Risk appearing weak.' },
+  ],
 };
 
 const MOCK_IMAGE_BASE64 = 'aW1hZ2VkYXRh';
 
-function makeMetadataResponse(metadata: PreviewMetadata) {
-  return { text: JSON.stringify(metadata) };
+/** Wraps metadata into the new { type: 'ready', metadata } Flash response shape. */
+function makeReadyResponse(metadata: PreviewMetadata) {
+  return { text: JSON.stringify({ type: 'ready', metadata }) };
 }
 
 function makeImageResponse(base64: string) {
   return {
     candidates: [{ content: { parts: [{ inlineData: { data: base64 } }] } }],
   };
+}
+
+function makeClarifyResponse(options: { title: string; description: string }[]) {
+  return { text: JSON.stringify({ type: 'clarify', options }) };
+}
+
+function makeBlockedResponse(alternatives: { title: string; description: string }[]) {
+  return { text: JSON.stringify({ type: 'blocked', alternatives }) };
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -103,9 +121,9 @@ describe('sessionPreviewRoute POST /session-preview', () => {
 
   describe('successful open topic flow', () => {
     beforeEach(() => {
-      // Call order: 1=metadata, 2=scene image, 3=avatar image
+      // Call order: 1=metadata (Flash), 2=scene image, 3=avatar image
       mockGenerateContent
-        .mockResolvedValueOnce(makeMetadataResponse(MOCK_METADATA))
+        .mockResolvedValueOnce(makeReadyResponse(MOCK_METADATA))
         .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
         .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
     });
@@ -147,12 +165,25 @@ describe('sessionPreviewRoute POST /session-preview', () => {
       expect(body.avatarImage).toBe(MOCK_IMAGE_BASE64);
       expect(body.partial).toBe(false);
     });
+
+    it('includes voiceName in the returned metadata', async () => {
+      const res = await post({ topic: 'French Revolution' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(body.metadata.voiceName).toBe('Algieba');
+    });
+
+    it('includes decisionPoints in the returned metadata', async () => {
+      const res = await post({ topic: 'French Revolution' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(Array.isArray(body.metadata.decisionPoints)).toBe(true);
+      expect(body.metadata.decisionPoints.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe('preset scenario flow', () => {
     beforeEach(() => {
       mockGenerateContent
-        .mockResolvedValueOnce(makeMetadataResponse({
+        .mockResolvedValueOnce(makeReadyResponse({
           ...MOCK_METADATA,
           characterName: 'CONSTANTINE XI',
           historicalSetting: 'Constantinople, 1453',
@@ -181,10 +212,53 @@ describe('sessionPreviewRoute POST /session-preview', () => {
     });
   });
 
+  describe('Flash response type: clarify', () => {
+    it('returns clarify response immediately without image calls', async () => {
+      const options = [
+        { title: 'Fall of Saigon, 1975', description: 'Embassy evacuation decision.' },
+        { title: 'Tet Offensive, 1968', description: 'Surprise attack on Hue.' },
+        { title: 'Gulf of Tonkin, 1964', description: 'Escalation decision.' },
+      ];
+      mockGenerateContent.mockResolvedValueOnce(makeClarifyResponse(options));
+
+      const res = await post({ topic: 'Vietnam War' });
+      expect(res.status).toBe(200);
+
+      const body = await res.json() as { type: string; options: { title: string; description: string }[] };
+      expect(body.type).toBe('clarify');
+      expect(body.options).toHaveLength(3);
+      expect(body.options[0].title).toBe('Fall of Saigon, 1975');
+
+      // No image calls made for clarify
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Flash response type: blocked', () => {
+    it('returns blocked response immediately without image calls', async () => {
+      const alternatives = [
+        { title: 'Sophie Scholl, 1943', description: 'White Rose resistance.' },
+        { title: 'Oskar Schindler, 1944', description: 'Saved 1,200 lives.' },
+        { title: 'Irena Sendler, 1943', description: 'Smuggled children from the Warsaw Ghetto.' },
+      ];
+      mockGenerateContent.mockResolvedValueOnce(makeBlockedResponse(alternatives));
+
+      const res = await post({ topic: 'Adolf Hitler' });
+      expect(res.status).toBe(200);
+
+      const body = await res.json() as { type: string; alternatives: { title: string; description: string }[] };
+      expect(body.type).toBe('blocked');
+      expect(body.alternatives).toHaveLength(3);
+
+      // No image calls made for blocked
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('partial failure handling', () => {
     it('returns partial:true and null sceneImage when scene image call returns no data', async () => {
       mockGenerateContent
-        .mockResolvedValueOnce(makeMetadataResponse(MOCK_METADATA))
+        .mockResolvedValueOnce(makeReadyResponse(MOCK_METADATA))
         // Scene image: no inlineData
         .mockResolvedValueOnce({ candidates: [{ content: { parts: [] } }] })
         .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
@@ -225,7 +299,7 @@ describe('sessionPreviewRoute POST /session-preview', () => {
 
     it('returns partial:false when metadata and both images succeed', async () => {
       mockGenerateContent
-        .mockResolvedValueOnce(makeMetadataResponse(MOCK_METADATA))
+        .mockResolvedValueOnce(makeReadyResponse(MOCK_METADATA))
         .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
         .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
 
@@ -236,7 +310,7 @@ describe('sessionPreviewRoute POST /session-preview', () => {
 
     it('returns partial:true when both images fail but metadata succeeds', async () => {
       mockGenerateContent
-        .mockResolvedValueOnce(makeMetadataResponse(MOCK_METADATA))
+        .mockResolvedValueOnce(makeReadyResponse(MOCK_METADATA))
         .mockRejectedValueOnce(new Error('image error'))
         .mockRejectedValueOnce(new Error('image error'));
 
@@ -255,7 +329,7 @@ describe('sessionPreviewRoute POST /session-preview', () => {
       mockGenerateContent
         .mockImplementationOnce(async () => {
           callOrder.push('metadata');
-          return makeMetadataResponse(MOCK_METADATA);
+          return makeReadyResponse(MOCK_METADATA);
         })
         .mockImplementationOnce(async () => {
           callOrder.push('image-1');
@@ -275,8 +349,8 @@ describe('sessionPreviewRoute POST /session-preview', () => {
   });
 
   describe('JSON response structure', () => {
-    it('always returns metadata, sceneImage, avatarImage, partial fields', async () => {
-      mockGenerateContent.mockResolvedValueOnce(makeMetadataResponse(MOCK_METADATA));
+    it('always returns metadata, sceneImage, avatarImage, partial fields for ready responses', async () => {
+      mockGenerateContent.mockResolvedValueOnce(makeReadyResponse(MOCK_METADATA));
 
       const res = await post({ topic: 'French Revolution' });
       expect(res.status).toBe(200);
@@ -285,6 +359,77 @@ describe('sessionPreviewRoute POST /session-preview', () => {
       expect('sceneImage' in body).toBe(true);
       expect('avatarImage' in body).toBe(true);
       expect('partial' in body).toBe(true);
+    });
+
+    it('returned metadata includes voiceName and decisionPoints', async () => {
+      mockGenerateContent
+        .mockResolvedValueOnce(makeReadyResponse(MOCK_METADATA))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
+
+      const res = await post({ topic: 'French Revolution' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(typeof body.metadata.voiceName).toBe('string');
+      expect(body.metadata.voiceName.length).toBeGreaterThan(0);
+      expect(Array.isArray(body.metadata.decisionPoints)).toBe(true);
+    });
+  });
+
+  describe('preset fallback fields', () => {
+    it('Constantinople preset fallback has voiceName Gacrux', async () => {
+      // Flash fails → use preset
+      mockGenerateContent
+        .mockRejectedValueOnce(new Error('Gemini unavailable'))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
+
+      const res = await post({ scenarioId: 'constantinople-1453' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(body.metadata.voiceName).toBe('Gacrux');
+    });
+
+    it('Constantinople preset fallback has decisionPoints', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(new Error('Gemini unavailable'))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
+
+      const res = await post({ scenarioId: 'constantinople-1453' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(body.metadata.decisionPoints.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('Constantinople preset userRole is stranger framing', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(new Error('Gemini unavailable'))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
+
+      const res = await post({ scenarioId: 'constantinople-1453' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(/stranger/i.test(body.metadata.userRole)).toBe(true);
+    });
+
+    it('Moon preset userRole is stranger framing', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(new Error('Gemini unavailable'))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
+
+      const res = await post({ scenarioId: 'moon-landing-1969' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(/unknown voice|stranger/i.test(body.metadata.userRole)).toBe(true);
+    });
+
+    it('Mongol preset userRole is stranger framing', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(new Error('Gemini unavailable'))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64))
+        .mockResolvedValueOnce(makeImageResponse(MOCK_IMAGE_BASE64));
+
+      const res = await post({ scenarioId: 'mongol-empire-1206' });
+      const body = await res.json() as { metadata: PreviewMetadata };
+      expect(/stranger/i.test(body.metadata.userRole)).toBe(true);
     });
   });
 });

@@ -6,12 +6,12 @@
    */
 
   const LOADING_TEXTS = [
-    '> wiring up the time machine...',
-    '> dusting off the history books...',
+    '> connecting your call...',
+    '> the line is ringing...',
     '> recruiting your character...',
     '> locating the era...',
-    '> calibrating the portal...',
-    '> the past is loading...',
+    '> the past is picking up...',
+    '> hold the line...',
     '> summoning witnesses...',
     '> scanning the archives...',
   ];

@@ -30,9 +30,9 @@
   };
 
   const stateLabels: Record<MicState, string> = {
-    active: '> channel open',
-    muted: '> channel muted',
-    disabled: '> offline',
+    active: '> connected',
+    muted: '> muted',
+    disabled: '> call ended',
   };
 
   async function handleToggle() {

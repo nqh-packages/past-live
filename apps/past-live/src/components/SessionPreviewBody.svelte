@@ -15,7 +15,6 @@
     editTopic: string;
     editNotes: string;
     micEnabled: boolean;
-    camEnabled: boolean;
     onretry: () => void;
     onstartEdit: () => void;
     oncancelEdit: () => void;
@@ -24,7 +23,6 @@
     oneditTopicChange: (val: string) => void;
     oneditNotesChange: (val: string) => void;
     onmicChange: (val: boolean) => void;
-    oncamChange: (val: boolean) => void;
   }
 
   let {
@@ -35,7 +33,6 @@
     editTopic,
     editNotes,
     micEnabled,
-    camEnabled,
     onretry,
     onstartEdit,
     oncancelEdit,
@@ -44,7 +41,6 @@
     oneditTopicChange,
     oneditNotesChange,
     onmicChange,
-    oncamChange,
   }: Props = $props();
 
   // ─── OKLCH validation ──────────────────────────────────────────────────────
@@ -223,33 +219,17 @@
       </div>
     </div>
 
-    <!-- Checkboxes -->
-    <div class="space-y-2.5" role="group" aria-label="Session options">
+    <!-- Mic checkbox -->
+    <div role="group" aria-label="Call options">
       <label class="flex items-center gap-3 cursor-pointer min-h-11 py-1">
         <input
           type="checkbox"
           checked={micEnabled}
           onchange={(e) => onmicChange((e.target as HTMLInputElement).checked)}
           class="w-4 h-4 accent-[color:var(--color-accent)] cursor-pointer"
-          aria-label="Auto-activate microphone at session start"
+          aria-label="Auto-activate microphone when call connects"
         />
-        <span class="font-mono text-[11px] text-foreground/60 select-none" style={sFg ? `color: ${sFg}; opacity: 0.7` : ''}>auto-activate mic</span>
-      </label>
-      <label class="flex items-start gap-3 cursor-pointer min-h-11 py-1">
-        <input
-          type="checkbox"
-          checked={camEnabled}
-          onchange={(e) => oncamChange((e.target as HTMLInputElement).checked)}
-          class="w-4 h-4 accent-[color:var(--color-accent)] cursor-pointer mt-0.5"
-          aria-label="Enable camera during session (optional)"
-        />
-        <span class="font-mono text-[11px] select-none" style={sFg ? `color: ${sFg}; opacity: 0.7` : 'color: color-mix(in oklch, var(--color-foreground) 60%, transparent)'}>
-          enable camera
-          <span
-            class="block text-[10px] text-foreground/30 mt-0.5 leading-snug"
-            style={sMuted ? `color: ${sMuted}` : ''}
-          >optional: let the character react to your expressions</span>
-        </span>
+        <span class="font-mono text-[11px] text-foreground/60 select-none" style={sFg ? `color: ${sFg}; opacity: 0.7` : ''}>enable microphone</span>
       </label>
     </div>
 
@@ -273,9 +253,9 @@
         style={sAccent && sBg
           ? `background: ${sAccent}; color: ${sBg}; border-color: ${sAccent}`
           : 'border-color: var(--color-accent); color: var(--color-accent)'}
-        aria-label="Enter the session now"
+        aria-label="Call this historical figure now"
       >
-        [ enter session ]
+        [ call ]
       </button>
     </div>
   {/if}

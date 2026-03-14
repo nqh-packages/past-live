@@ -1,7 +1,7 @@
 ---
 /**
- * @what - Home screen: the archive room where users pick their topic
- * @why - Input hub (text / voice / camera) + 3 scenario cards. Leads to session preview overlay.
+ * @what - Home screen: pick who to call from history
+ * @why - Input hub (text / voice / camera) + 3 person+moment cards. Leads to session preview overlay.
  */
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
@@ -15,14 +15,9 @@ const backendUrl = import.meta.env.VITE_BACKEND_HTTP_URL ?? "http://localhost:87
 const scenarios = [
   {
     id: "constantinople-1453",
-    dispatch: "#1453",
-    location: "constantinople",
-    year: 1453,
-    status: "walls breached",
-    role: "emperor's advisor",
-    threat: "critical",
-    headline: "The walls are falling.",
-    // Preset preview data for instant overlay (no Gemini call needed)
+    person: "Constantine XI",
+    era: "Constantinople, 1453",
+    teaser: "The walls are falling.",
     preset: {
       topic: "Fall of Constantinople 1453",
       userRole: "Emperor's last advisor",
@@ -30,6 +25,7 @@ const scenarios = [
       historicalSetting: "Constantinople, Byzantine Empire",
       year: "1453",
       context: "Mehmed II's Ottoman army has surrounded the city. The harbor chain is your last defense. The walls — unbreached for 1,000 years — are failing. The emperor needs your counsel.",
+      voiceName: "Gacrux",
       colorPalette: [
         "oklch(12% 0.04 35)",
         "oklch(16% 0.04 35)",
@@ -41,20 +37,17 @@ const scenarios = [
   },
   {
     id: "moon-landing-1969",
-    dispatch: "#1969",
-    location: "apollo 11 command module",
-    year: 1969,
-    status: "fuel warning at 25 seconds",
-    role: "mission control",
-    threat: "critical",
-    headline: "25 seconds of fuel.",
+    person: "Gene Kranz",
+    era: "Apollo 11, 1969",
+    teaser: "25 seconds of fuel.",
     preset: {
       topic: "Apollo 11 Moon Landing 1969",
-      userRole: "Flight director, Mission Control",
-      characterName: "MISSION CONTROL",
+      userRole: "Student on the line with Mission Control",
+      characterName: "GENE KRANZ",
       historicalSetting: "NASA Mission Control, Houston",
       year: "1969",
       context: "Eagle has only 25 seconds of fuel. The landing site is boulder-strewn. Armstrong is flying manually. You have one call to make — abort or land.",
+      voiceName: "Charon",
       colorPalette: [
         "oklch(10% 0.02 240)",
         "oklch(14% 0.02 240)",
@@ -66,20 +59,17 @@ const scenarios = [
   },
   {
     id: "mongol-empire-1206",
-    dispatch: "#1206",
-    location: "mongol steppe",
-    year: 1206,
-    status: "alliance or war",
-    role: "khan's rival",
-    threat: "critical",
-    headline: "The khan rides.",
+    person: "Jamukha",
+    era: "Mongol Steppe, 1206",
+    teaser: "The khan rides.",
     preset: {
       topic: "Rise of the Mongol Empire 1206",
-      userRole: "Rival tribe leader",
-      characterName: "GENGHIS KHAN",
+      userRole: "Rival tribe leader's envoy",
+      characterName: "JAMUKHA",
       historicalSetting: "Mongolian Steppe",
       year: "1206",
-      context: "Temüjin has united the steppe tribes and taken the name Genghis Khan. He has sent a messenger. Join the empire or face destruction. Your tribe's survival is in your answer.",
+      context: "Temüjin has united the steppe tribes and taken the name Genghis Khan. Jamukha — his blood brother turned rival — is weighing his final move. You have found him before the decisive battle.",
+      voiceName: "Algenib",
       colorPalette: [
         "oklch(11% 0.03 60)",
         "oklch(15% 0.03 60)",
@@ -92,9 +82,8 @@ const scenarios = [
 ];
 ---
 
-<BaseLayout title="Past, Live — The Archive">
+<BaseLayout title="Past, Live — Who do you want to call?">
   <!-- SessionPreview overlay: shown after topic submit or scenario card click -->
-  <!-- Reads topic from a custom event dispatched by TopicInput / ScenarioCard -->
   <SessionPreview
     client:load
     backendUrl={backendUrl}
@@ -112,9 +101,9 @@ const scenarios = [
       </a>
     </h1>
 
-    <!-- Hero: Codex register -->
+    <!-- Hero copy -->
     <p class="font-serif italic text-foreground text-xl text-center leading-relaxed mb-14">
-      The past is speaking.<br />Are you?
+      Who do you want to call?
     </p>
 
     <!-- Input: three modes (text / voice / camera) -->
@@ -124,11 +113,11 @@ const scenarios = [
 
     <!-- Divider -->
     <p class="text-foreground/20 text-[10px] tracking-[0.2em] uppercase mb-8" aria-hidden="true">
-      or accept a briefing
+      or pick someone to call
     </p>
 
-    <!-- Scenario cards -->
-    <section class="w-full flex flex-col gap-4 mb-16" aria-label="Pre-built scenarios">
+    <!-- Person+moment cards -->
+    <section class="w-full flex flex-col gap-4 mb-16" aria-label="Historical figures to call">
       {scenarios.map((s) => (
         <ScenarioCard scenario={s} client:visible />
       ))}
@@ -136,6 +125,7 @@ const scenarios = [
 
     <!-- Privacy footer -->
     <footer class="text-foreground/20 text-[10px] tracking-[0.15em] text-center" role="contentinfo">
+      no wrong answers<br />
       voice processed live, never recorded
     </footer>
   </main>

@@ -21,7 +21,6 @@ describe('SCENARIO_IDS', () => {
   });
 
   it('is readonly (tuple type — runtime array check)', () => {
-    // SCENARIO_IDS is readonly; verifying it is array-like
     expect(Array.isArray(SCENARIO_IDS)).toBe(true);
   });
 });
@@ -48,7 +47,7 @@ describe('getScenario', () => {
     });
   });
 
-  // ─── One — each known ID returns a valid Scenario ────────────────────────
+  // ─── Constantinople 1453 ─────────────────────────────────────────────────
 
   describe('Constantinople 1453 scenario', () => {
     const CONSTANTINOPLE_ID = 'constantinople-1453';
@@ -68,9 +67,33 @@ describe('getScenario', () => {
       expect(scenario.id).toBe(CONSTANTINOPLE_ID);
       expect(scenario.title).toContain('Constantinople');
       expect(scenario.year).toBe(1453);
-      expect(scenario.role).toMatch(/advisor/i);
+      expect(scenario.role).toMatch(/constantine/i);
       expect(typeof scenario.twist).toBe('string');
       expect(scenario.twist.length).toBeGreaterThan(10);
+    });
+
+    it('has voiceName Gacrux', () => {
+      scenario = getScenario(CONSTANTINOPLE_ID)!;
+      expect(scenario.voiceName).toBe('Gacrux');
+    });
+
+    it('has decisionPoint with moment and choices', () => {
+      scenario = getScenario(CONSTANTINOPLE_ID)!;
+      expect(typeof scenario.decisionPoint.moment).toBe('string');
+      expect(scenario.decisionPoint.moment.length).toBeGreaterThan(5);
+      expect(Array.isArray(scenario.decisionPoint.choices)).toBe(true);
+      expect(scenario.decisionPoint.choices.length).toBeGreaterThanOrEqual(2);
+      expect(scenario.decisionPoint.choices.length).toBeLessThanOrEqual(3);
+    });
+
+    it('decisionPoint choices have title and description', () => {
+      scenario = getScenario(CONSTANTINOPLE_ID)!;
+      for (const choice of scenario.decisionPoint.choices) {
+        expect(typeof choice.title).toBe('string');
+        expect(choice.title.length).toBeGreaterThan(0);
+        expect(typeof choice.description).toBe('string');
+        expect(choice.description.length).toBeGreaterThan(0);
+      }
     });
 
     it('has a non-empty systemPrompt', () => {
@@ -102,6 +125,8 @@ describe('getScenario', () => {
     });
   });
 
+  // ─── Moon Landing 1969 ───────────────────────────────────────────────────
+
   describe('Moon Landing 1969 scenario', () => {
     const MOON_LANDING_ID = 'moon-landing-1969';
     let scenario: Scenario | undefined;
@@ -120,8 +145,23 @@ describe('getScenario', () => {
       expect(scenario.id).toBe(MOON_LANDING_ID);
       expect(scenario.title).toMatch(/moon/i);
       expect(scenario.year).toBe(1969);
-      expect(scenario.role).toMatch(/mission control|nasa/i);
+      expect(scenario.role).toMatch(/kranz|gene/i);
       expect(scenario.twist.length).toBeGreaterThan(10);
+    });
+
+    it('has voiceName Charon', () => {
+      scenario = getScenario(MOON_LANDING_ID)!;
+      expect(scenario.voiceName).toBe('Charon');
+    });
+
+    it('has decisionPoint with moment and choices', () => {
+      scenario = getScenario(MOON_LANDING_ID)!;
+      expect(typeof scenario.decisionPoint.moment).toBe('string');
+      expect(scenario.decisionPoint.choices.length).toBeGreaterThanOrEqual(2);
+      for (const choice of scenario.decisionPoint.choices) {
+        expect(typeof choice.title).toBe('string');
+        expect(typeof choice.description).toBe('string');
+      }
     });
 
     it('has a non-empty systemPrompt', () => {
@@ -147,6 +187,8 @@ describe('getScenario', () => {
     });
   });
 
+  // ─── Mongol Empire 1206 ──────────────────────────────────────────────────
+
   describe('Mongol Empire 1206 scenario', () => {
     const MONGOL_ID = 'mongol-empire-1206';
     let scenario: Scenario | undefined;
@@ -165,8 +207,24 @@ describe('getScenario', () => {
       expect(scenario.id).toBe(MONGOL_ID);
       expect(scenario.title).toMatch(/mongol/i);
       expect(scenario.year).toBe(1206);
-      expect(scenario.role).toMatch(/rival|tribe|khan/i);
+      expect(scenario.role).toMatch(/jamukha/i);
       expect(scenario.twist.length).toBeGreaterThan(10);
+    });
+
+    it('has voiceName Algenib', () => {
+      scenario = getScenario(MONGOL_ID)!;
+      expect(scenario.voiceName).toBe('Algenib');
+    });
+
+    it('has decisionPoint with moment and choices', () => {
+      scenario = getScenario(MONGOL_ID)!;
+      expect(typeof scenario.decisionPoint.moment).toBe('string');
+      expect(scenario.decisionPoint.choices.length).toBeGreaterThanOrEqual(2);
+      expect(scenario.decisionPoint.choices.length).toBeLessThanOrEqual(3);
+      for (const choice of scenario.decisionPoint.choices) {
+        expect(typeof choice.title).toBe('string');
+        expect(typeof choice.description).toBe('string');
+      }
     });
 
     it('has a non-empty systemPrompt', () => {
@@ -193,7 +251,7 @@ describe('getScenario', () => {
   });
 });
 
-// ─── Prompt Depth Assertions — the critical quality gate ─────────────────────
+// ─── Prompt Depth Assertions — behavioral rules encoded ──────────────────────
 
 describe('systemPrompt depth — behavioral rules encoded', () => {
   for (const id of ['constantinople-1453', 'moon-landing-1969', 'mongol-empire-1206'] as const) {
@@ -218,25 +276,25 @@ describe('systemPrompt depth — behavioral rules encoded', () => {
 
       it('encodes max probes limit (3)', () => {
         const { systemPrompt } = getScenario(id)!;
-        const hasMaxProbes = /max.*3|3.*probe|three probe|maximum.*three/i.test(systemPrompt);
+        const hasMaxProbes = /max.*3|3.*probe|three probe|maximum.*three|maximum 3/i.test(systemPrompt);
         expect(hasMaxProbes).toBe(true);
       });
 
-      it('encodes corpsing rule (max 1x per session)', () => {
+      it('does NOT encode corpsing rule (no narrator in this app)', () => {
         const { systemPrompt } = getScenario(id)!;
         const hasCorpsing =
-          /corpse|corpsing|storyteller.*did.*not.*see|even the storyteller/i.test(systemPrompt) ||
-          /narrator.*break|break.*narrator/i.test(systemPrompt);
-        expect(hasCorpsing).toBe(true);
+          /corpse|corpsing|even the storyteller/i.test(systemPrompt) ||
+          /narrator.*break/i.test(systemPrompt);
+        expect(hasCorpsing).toBe(false);
       });
 
-      it('encodes session pacing target (~14 min)', () => {
+      it('does NOT reference 14-minute pacing (sessions are now 5-7 min)', () => {
         const { systemPrompt } = getScenario(id)!;
-        const hasPacing = /14 min|fourteen min|~14|14-minute/i.test(systemPrompt);
-        expect(hasPacing).toBe(true);
+        const has14min = /14 min|fourteen min|~14|14-minute/i.test(systemPrompt);
+        expect(has14min).toBe(false);
       });
 
-      it('encodes positive in-character ending at step 10', () => {
+      it('encodes positive in-character ending / closing observation', () => {
         const { systemPrompt } = getScenario(id)!;
         const hasPositiveEnd =
           /positive.*insight|in-character.*insight|step 10|end.*positive|closing.*observation/i.test(systemPrompt);
@@ -245,10 +303,8 @@ describe('systemPrompt depth — behavioral rules encoded', () => {
 
       it('rejects teacher-mode language in probing', () => {
         const { systemPrompt } = getScenario(id)!;
-        // Must explicitly forbid teacher phrases — the prompt should call them out
         const forbidsTeacherMode =
           /good try|actually\.\.\.|let me give you a hint|well done|teacher.?mode/i.test(systemPrompt);
-        // Teacher-mode phrases must be listed as FORBIDDEN in prompt
         expect(forbidsTeacherMode).toBe(true);
       });
 
@@ -264,8 +320,58 @@ describe('systemPrompt depth — behavioral rules encoded', () => {
         const hasTwist = /twist|crisis|turn|seed/i.test(systemPrompt);
         expect(hasTwist).toBe(true);
       });
+
+      it('references end_session tool', () => {
+        const { systemPrompt } = getScenario(id)!;
+        expect(systemPrompt).toContain('end_session');
+      });
+
+      it('references announce_choice tool', () => {
+        const { systemPrompt } = getScenario(id)!;
+        expect(systemPrompt).toContain('announce_choice');
+      });
+
+      it('uses stranger framing (not advisor)', () => {
+        const { systemPrompt } = getScenario(id)!;
+        expect(/stranger/i.test(systemPrompt)).toBe(true);
+      });
     });
   }
+});
+
+// ─── Call metaphor framing per scenario ──────────────────────────────────────
+
+describe('call metaphor framing', () => {
+  it('Constantinople prompt does NOT use "advisor" as the student role', () => {
+    const { systemPrompt } = getScenario('constantinople-1453')!;
+    // "most trusted advisor" was the old framing — student is now a stranger
+    expect(/most trusted advisor/i.test(systemPrompt)).toBe(false);
+  });
+
+  it('Moon prompt does NOT reference "engineer" as the student role', () => {
+    const { systemPrompt } = getScenario('moon-landing-1969')!;
+    expect(/lead systems engineer|student.*engineer/i.test(systemPrompt)).toBe(false);
+  });
+
+  it('Mongol prompt does NOT reference "chieftain ally" as the student role', () => {
+    const { systemPrompt } = getScenario('mongol-empire-1206')!;
+    expect(/chieftain ally|tribal.*chieftain.*ally/i.test(systemPrompt)).toBe(false);
+  });
+
+  it('Constantinople prompt frames the call correctly', () => {
+    const { systemPrompt } = getScenario('constantinople-1453')!;
+    expect(/called you from beyond|stranger/i.test(systemPrompt)).toBe(true);
+  });
+
+  it('Moon prompt frames the call correctly', () => {
+    const { systemPrompt } = getScenario('moon-landing-1969')!;
+    expect(/unknown voice.*comm|appeared on the comm/i.test(systemPrompt)).toBe(true);
+  });
+
+  it('Mongol prompt frames the call correctly', () => {
+    const { systemPrompt } = getScenario('mongol-empire-1206')!;
+    expect(/stranger arrived.*fire|don.t belong on the steppe/i.test(systemPrompt)).toBe(true);
+  });
 });
 
 // ─── buildOpenTopicPrompt ─────────────────────────────────────────────────────
@@ -291,6 +397,11 @@ describe('buildOpenTopicPrompt', () => {
     }
   });
 
+  it('frames the student as a caller from the future, not a role', () => {
+    const prompt = buildOpenTopicPrompt('French Revolution');
+    expect(/called.*from.*future|someone.*on the line|call from.*future/i.test(prompt)).toBe(true);
+  });
+
   it('encodes character lock', () => {
     const prompt = buildOpenTopicPrompt('French Revolution');
     const hasCharLock =
@@ -308,30 +419,27 @@ describe('buildOpenTopicPrompt', () => {
 
   it('encodes max probes limit', () => {
     const prompt = buildOpenTopicPrompt('French Revolution');
-    const hasMaxProbes = /max.*3|3.*probe|three probe|maximum.*three/i.test(prompt);
+    const hasMaxProbes = /max.*3|3.*probe|three probe|maximum.*three|maximum 3/i.test(prompt);
     expect(hasMaxProbes).toBe(true);
   });
 
-  it('encodes corpsing rule', () => {
+  it('does NOT encode corpsing rule', () => {
     const prompt = buildOpenTopicPrompt('French Revolution');
     const hasCorpsing =
-      /corpse|corpsing|storyteller.*did.*not.*see|even the storyteller/i.test(prompt) ||
-      /narrator.*break|break.*narrator/i.test(prompt);
-    expect(hasCorpsing).toBe(true);
+      /corpse|corpsing|even the storyteller/i.test(prompt) ||
+      /narrator.*break/i.test(prompt);
+    expect(hasCorpsing).toBe(false);
   });
 
-  it('encodes pacing target', () => {
+  it('does NOT reference 14-minute pacing', () => {
     const prompt = buildOpenTopicPrompt('French Revolution');
-    const hasPacing = /14 min|fourteen min|~14|14-minute/i.test(prompt);
-    expect(hasPacing).toBe(true);
+    expect(/14 min|fourteen min|~14|14-minute/i.test(prompt)).toBe(false);
   });
 
   it('encodes positive ending', () => {
     const prompt = buildOpenTopicPrompt('French Revolution');
     const hasPositiveEnd =
-      /positive.*insight|in-character.*insight|step 10|end.*positive|closing.*observation/i.test(
-        prompt
-      );
+      /positive.*insight|in-character.*insight|step 10|end.*positive|closing.*observation/i.test(prompt);
     expect(hasPositiveEnd).toBe(true);
   });
 
@@ -341,53 +449,43 @@ describe('buildOpenTopicPrompt', () => {
       /good try|actually\.\.\.|let me give you a hint|well done|teacher.?mode/i.test(prompt);
     expect(forbidsTeacherMode).toBe(true);
   });
+
+  it('references announce_choice tool', () => {
+    const prompt = buildOpenTopicPrompt('French Revolution');
+    expect(prompt).toContain('announce_choice');
+  });
+
+  it('references end_session tool', () => {
+    const prompt = buildOpenTopicPrompt('French Revolution');
+    expect(prompt).toContain('end_session');
+  });
 });
 
-// ─── Accessible language rules (variant B) ────────────────────────────────────
+// ─── Accessible language rules ────────────────────────────────────────────────
 
 describe('BEHAVIORAL_RULES accessible language', () => {
-  // Get the BEHAVIORAL_RULES content through a scenario that embeds it
   const promptUnderTest = (): string => getScenario('constantinople-1453')!.systemPrompt;
 
-  it('includes short sentence guidance (max 15 words per sentence)', () => {
-    // The rules section must contain a reference that signals accessible language
-    // We verify by checking the rules contain the forbidden vocabulary list
+  it('includes a forbidden vocabulary list', () => {
     const prompt = promptUnderTest();
     const hasForbiddenVocab = /FORBIDDEN VOCABULARY|forbidden vocabulary/i.test(prompt);
     expect(hasForbiddenVocab).toBe(true);
   });
 
-  it('includes a forbidden vocabulary list', () => {
+  it('includes specific forbidden words in the list', () => {
     const prompt = promptUnderTest();
-    // Must explicitly list hard academic words to block
-    const hasInexorable = /inexorable/i.test(prompt);
-    const hasNascent = /nascent/i.test(prompt);
-    const hasHegemony = /hegemony/i.test(prompt);
-    expect(hasInexorable).toBe(true);
-    expect(hasNascent).toBe(true);
-    expect(hasHegemony).toBe(true);
+    expect(/inexorable/i.test(prompt)).toBe(true);
+    expect(/nascent/i.test(prompt)).toBe(true);
+    expect(/hegemony/i.test(prompt)).toBe(true);
   });
 
-  it('does not contain forbidden jargon words in the rules section', () => {
-    // The forbidden words should appear only in the "do not use" list — not in the actual instructions.
-    // We verify the rules prefer plain language by checking the plain-word instructions exist.
+  it('does not contain forbidden jargon in the instructions themselves', () => {
     const prompt = promptUnderTest();
-    // Plain language markers present in variant B rules
     const hasPlainLanguage =
       /plain words/i.test(prompt) ||
       /plain language/i.test(prompt) ||
       /common sense/i.test(prompt);
     expect(hasPlainLanguage).toBe(true);
-  });
-
-  it('uses documentary tone markers (BBC/PBS style)', () => {
-    // Variant B rules reference the narrator/documentary style
-    const prompt = promptUnderTest();
-    const hasDocumentaryTone =
-      /narrator break/i.test(prompt) ||
-      /even the storyteller/i.test(prompt) ||
-      /storyteller/i.test(prompt);
-    expect(hasDocumentaryTone).toBe(true);
   });
 });
 
@@ -448,6 +546,22 @@ describe('cross-scenario integrity', () => {
     for (const id of SCENARIO_IDS) {
       const scenario = getScenario(id)!;
       expect(scenario.relatedScenarios).not.toContain(id);
+    }
+  });
+
+  it('all scenarios have non-empty voiceName', () => {
+    for (const id of SCENARIO_IDS) {
+      const scenario = getScenario(id)!;
+      expect(typeof scenario.voiceName).toBe('string');
+      expect(scenario.voiceName.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all scenarios have decisionPoint with at least 2 choices', () => {
+    for (const id of SCENARIO_IDS) {
+      const scenario = getScenario(id)!;
+      expect(scenario.decisionPoint).toBeDefined();
+      expect(scenario.decisionPoint.choices.length).toBeGreaterThanOrEqual(2);
     }
   });
 });

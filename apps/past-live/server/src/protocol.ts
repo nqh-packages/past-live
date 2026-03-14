@@ -11,7 +11,7 @@ export type ClientMessage =
   | { type: 'text'; text: string }
   | { type: 'video'; data: string; mimeType: 'image/jpeg' }
   | { type: 'audio_end' }
-  | { type: 'start'; scenarioId?: string; topic?: string; studentName?: string };
+  | { type: 'start'; scenarioId?: string; topic?: string; studentName?: string; voiceName?: string };
 
 // ─── Hono → Client ───────────────────────────────────────────────────────────
 
@@ -21,6 +21,8 @@ export type ServerMessage =
   | { type: 'output_transcription'; text: string }
   | { type: 'input_transcription'; text: string }
   | { type: 'interrupted' }
+  | { type: 'speaker_switch'; speaker: 'character'; name: string }
+  | { type: 'choices'; choices: { title: string; description: string }[] }
   | { type: 'error'; message: string }
   | { type: 'ended'; reason: string };
 
@@ -83,9 +85,10 @@ export function parseClientMessage(raw: string): ClientMessage {
         throw new Error('start requires exactly one of scenarioId or topic');
       }
       const studentName = typeof obj['studentName'] === 'string' ? obj['studentName'] : undefined;
+      const voiceName = typeof obj['voiceName'] === 'string' ? obj['voiceName'] : undefined;
       return hasScenario
-        ? { type: 'start', scenarioId: obj['scenarioId'] as string, studentName }
-        : { type: 'start', topic: obj['topic'] as string, studentName };
+        ? { type: 'start', scenarioId: obj['scenarioId'] as string, studentName, voiceName }
+        : { type: 'start', topic: obj['topic'] as string, studentName, voiceName };
     }
   }
 }

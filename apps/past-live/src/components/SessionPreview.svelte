@@ -47,7 +47,6 @@
   let editTopic = $state('');
   let editNotes = $state('');
   let micEnabled = $state(true);
-  let camEnabled = $state(false);
 
   // ─── Event listeners ───────────────────────────────────────────────────────
 
@@ -224,7 +223,6 @@
     if (previewScenarioId) { params.set('scenario', previewScenarioId); }
     else { params.set('topic', previewTopic); }
     if (micEnabled) params.set('mic', '1');
-    if (camEnabled) params.set('cam', '1');
 
     window.location.href = `/session?${params.toString()}`;
   }
@@ -236,7 +234,7 @@
     class="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
     role="dialog"
     aria-modal="true"
-    aria-label="Session briefing preview"
+    aria-label="Call preview"
   >
     <!-- Panel — inherits story palette when available -->
     <div
@@ -254,13 +252,13 @@
           class="font-mono text-[10px] tracking-[0.15em] uppercase"
           style={hasStoryPalette ? `color: ${safeOklch(panelPalette[2])}` : 'color: var(--color-accent)'}
         >
-          &gt; session briefing
+          &gt; calling
         </div>
         <button
           type="button"
           onclick={close}
           class="absolute top-4 right-4 min-w-8 min-h-8 w-8 h-8 flex items-center justify-center text-foreground/30 hover:text-foreground/60 transition-colors rounded-sm"
-          aria-label="Close session briefing"
+          aria-label="Close call preview"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -279,7 +277,6 @@
           {editTopic}
           {editNotes}
           {micEnabled}
-          {camEnabled}
           onretry={retry}
           onstartEdit={startEdit}
           oncancelEdit={cancelEdit}
@@ -288,7 +285,6 @@
           oneditTopicChange={(v) => { editTopic = v; }}
           oneditNotesChange={(v) => { editNotes = v; }}
           onmicChange={(v) => { micEnabled = v; }}
-          oncamChange={(v) => { camEnabled = v; }}
         />
       </div>
 

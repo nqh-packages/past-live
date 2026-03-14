@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
    * @what - Invisible orchestrator island managing WebSocket session lifecycle
-   * @why - Mounts on /session, connects WS, wires audio callbacks, handles countdown + auto-mic
-   * @props - scenarioId, topic, backendWsUrl, mic (auto-activate), cam (enable camera)
+   * @why - Mounts on /session, connects WS, wires audio callbacks, handles calling screen + auto-mic
+   * @props - scenarioId, topic, backendWsUrl, mic (auto-activate)
    */
   import { onDestroy } from 'svelte';
   import {
@@ -11,6 +11,7 @@
     $isSpeaking as isSpeaking,
     $micEnabled as micEnabled,
     $characterName as characterName,
+    $previewData as previewData,
     PRESET_CHARACTER_NAMES,
   } from '../stores/liveSession';
   import {
@@ -25,7 +26,7 @@
     stopMic,
     preWarmAudioContext,
   } from '../lib/liveSession/audio';
-  import CountdownOverlay from './CountdownOverlay.svelte';
+  import CallingScreen from './CallingScreen.svelte';
   import FunLoadingText from './FunLoadingText.svelte';
 
   interface Props {
@@ -34,20 +35,26 @@
     backendWsUrl: string;
     /** Whether to auto-activate mic on session entry (from URL param ?mic=1) */
     mic?: boolean;
-    /** Whether to enable camera (from URL param ?cam=1) */
-    cam?: boolean;
   }
 
-  let { scenarioId, topic, backendWsUrl, mic = true, cam = false }: Props = $props();
+  let { scenarioId, topic, backendWsUrl, mic = true }: Props = $props();
 
   // ─── Phase state ──────────────────────────────────────────────────────────
 
   /**
-   * showCountdown: plays the 3-second countdown overlay before session starts.
-   * After countdown completes, if WS is still connecting → show FunLoadingText.
+   * showCallingScreen: shows iPhone-style calling overlay during connecting state.
+   * Hides ~1s after connected, via CallingScreen oncomplete callback.
    */
-  let showCountdown = $state(true);
-  let countdownDone = $state(false);
+  let showCallingScreen = $state(true);
+
+  // ─── Read voiceName + portrait from sessionStorage ─────────────────────────
+
+  const previewRaw = typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('past-live:preview')
+    : null;
+  const previewParsed = previewRaw ? (JSON.parse(previewRaw) as { voiceName?: string; avatar?: string }) : null;
+  const voiceName = previewParsed?.voiceName;
+  const portrait = previewParsed?.avatar;
 
   // ─── Audio callback wiring ─────────────────────────────────────────────────
 
@@ -55,7 +62,7 @@
     isSpeaking.set(playing);
   });
 
-  // ─── Pre-warm AudioContext on mount (user gesture happened at [ENTER SESSION]) ──
+  // ─── Pre-warm AudioContext on mount (user gesture happened at [CALL]) ──────
 
   preWarmAudioContext();
 
@@ -64,7 +71,7 @@
   // Priority order:
   //   1. sessionStorage 'past-live:preview' → characterName (set by SessionPreview.svelte)
   //   2. PRESET_CHARACTER_NAMES[scenarioId] (direct URL access to a known scenario)
-  //   3. 'NARRATOR' (default — open topic without preview)
+  //   3. '' (default — open topic without preview, filled by first speaker_switch)
 
   (function resolveCharacterName() {
     try {
@@ -81,13 +88,12 @@
     if (scenarioId && PRESET_CHARACTER_NAMES[scenarioId]) {
       characterName.set(PRESET_CHARACTER_NAMES[scenarioId]);
     }
-    // else: keep default 'NARRATOR'
   })();
 
-  // ─── Connect WebSocket immediately (runs in background during countdown) ──
+  // ─── Connect WebSocket immediately (runs in background during calling screen) ──
 
   if (scenarioId || topic) {
-    connectSession({ scenarioId, topic, backendWsUrl });
+    connectSession({ scenarioId, topic, voiceName, backendWsUrl });
   }
 
   // ─── Spacebar toggles mute/unmute (only when NOT focused on text input) ───
@@ -133,7 +139,7 @@
       startMic()
         .then(() => { micEnabled.set(true); })
         .catch(() => {
-          // getUserMedia denied — user can click MicButton to retry
+          // getUserMedia denied — user can tap MicButton to retry
         });
     }
   });
@@ -146,17 +152,24 @@
     }
   });
 
-  // ─── Countdown complete handler ────────────────────────────────────────────
+  // ─── CallingScreen complete handler ───────────────────────────────────────
 
-  function onCountdownComplete() {
-    showCountdown = false;
-    countdownDone = true;
+  function onCallingComplete() {
+    showCallingScreen = false;
+  }
+
+  // ─── Hang up ─────────────────────────────────────────────────────────────
+
+  function handleHangUp() {
+    stopMic();
+    disconnect();
+    window.location.href = '/summary';
   }
 
   // ─── Retry ────────────────────────────────────────────────────────────────
 
   function retry() {
-    connectSession({ scenarioId, topic, backendWsUrl });
+    connectSession({ scenarioId, topic, voiceName, backendWsUrl });
   }
 
   onDestroy(() => {
@@ -165,19 +178,29 @@
     window.removeEventListener('keydown', handleKeydown);
   });
 
-  // Whether we're still waiting for WS after countdown finished
-  const isWaitingAfterCountdown = $derived(
-    countdownDone && $status === 'connecting',
+  // Whether we're still waiting for WS after calling screen dismissed
+  const isWaitingForConnection = $derived(
+    !showCallingScreen && $status === 'connecting',
   );
+
+  // Derived character name and era for CallingScreen
+  const resolvedCharacterName = $derived($characterName || 'Connecting...');
+  const resolvedEra = $derived($previewData?.historicalSetting ?? ($previewData?.year ? `${$previewData.year}` : ''));
 </script>
 
-<!-- Countdown overlay: plays 3s then fires onCountdownComplete -->
-{#if showCountdown}
-  <CountdownOverlay oncomplete={onCountdownComplete} />
+<!-- Calling screen: iPhone-style overlay during connecting phase -->
+{#if showCallingScreen && ($status === 'connecting' || $status === 'active')}
+  <CallingScreen
+    characterName={resolvedCharacterName}
+    era={resolvedEra}
+    portrait={portrait}
+    connected={$status === 'active'}
+    oncomplete={onCallingComplete}
+  />
 {/if}
 
-<!-- Connection wait (after countdown, WS still connecting): show fun loading text -->
-{#if isWaitingAfterCountdown}
+<!-- Connection wait (after calling screen, WS still connecting): show fun loading text -->
+{#if isWaitingForConnection}
   <div class="fixed inset-0 z-40 flex flex-col items-center justify-center bg-background/95">
     <div class="relative pl-[72px]">
       <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>

@@ -11,6 +11,13 @@ import { createGeminiSession } from './gemini.js';
 import type { GeminiSession } from './gemini.js';
 import { logger } from './logger.js';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** At 9 min, inject a graceful wrap-up instruction to the model. */
+const WRAP_UP_MS = 9 * 60 * 1000;
+/** At 10 min, force-close regardless of model state. */
+const FORCE_CLOSE_MS = 10 * 60 * 1000;
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 interface RelayState {
@@ -18,6 +25,8 @@ interface RelayState {
   started: boolean;
   sessionId: string | null;
   audioCunkCount: number;
+  wrapUpTimer: ReturnType<typeof setTimeout> | null;
+  forceCloseTimer: ReturnType<typeof setTimeout> | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -34,6 +43,17 @@ function generateSessionId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function clearTimers(state: RelayState): void {
+  if (state.wrapUpTimer) {
+    clearTimeout(state.wrapUpTimer);
+    state.wrapUpTimer = null;
+  }
+  if (state.forceCloseTimer) {
+    clearTimeout(state.forceCloseTimer);
+    state.forceCloseTimer = null;
+  }
+}
+
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 /**
@@ -45,7 +65,14 @@ function generateSessionId(): string {
  *   hold-to-speak UX since the user cannot transmit before `connected` is received.
  */
 export function createRelay(ws: WSContext): void {
-  const state: RelayState = { session: null, started: false, sessionId: null, audioCunkCount: 0 };
+  const state: RelayState = {
+    session: null,
+    started: false,
+    sessionId: null,
+    audioCunkCount: 0,
+    wrapUpTimer: null,
+    forceCloseTimer: null,
+  };
 
   logger.debug({ event: 'ws_open' }, 'WebSocket connection opened');
 
@@ -59,7 +86,7 @@ export function createRelay(ws: WSContext): void {
   });
 
   raw.addEventListener('close', () => {
-    handleBrowserClose(state);
+    handleBrowserClose(ws, state);
   });
 }
 
@@ -136,19 +163,20 @@ function handleClientMessage(ws: WSContext, state: RelayState, raw: string): voi
 async function handleStart(
   ws: WSContext,
   state: RelayState,
-  msg: { type: 'start'; scenarioId?: string; topic?: string; studentName?: string },
+  msg: { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string },
 ): Promise<void> {
   // Guard against double-start
   if (state.started) return;
   state.started = true;
 
   logger.info(
-    { event: 'session_start', scenarioId: msg.scenarioId, topic: msg.topic, studentName: msg.studentName },
+    { event: 'session_start', scenarioId: msg.scenarioId, topic: msg.topic, studentName: msg.studentName, voiceName: msg.voiceName },
     'Session start received',
   );
 
-  // Resolve system prompt
+  // Resolve system prompt and voice
   let systemPrompt: string;
+  let voiceName: string | undefined = msg.voiceName;
 
   if (msg.scenarioId) {
     const scenario = getScenario(msg.scenarioId);
@@ -162,6 +190,8 @@ async function handleStart(
       return;
     }
     systemPrompt = scenario.systemPrompt;
+    // Use preset voice if not overridden by the browser
+    voiceName ??= scenario.voiceName;
   } else if (msg.topic) {
     systemPrompt = buildOpenTopicPrompt(msg.topic);
   } else {
@@ -171,43 +201,90 @@ async function handleStart(
     return;
   }
 
-  // Open Gemini session
+  const sessionId = generateSessionId();
+  state.sessionId = sessionId;
+
+  // Open Gemini session with tool call handler
   const session = await createGeminiSession({
     systemPrompt,
+    voiceName,
     onAudio: (data) => sendToClient(ws, { type: 'audio', data }),
     onOutputTranscription: (text) => {
-      logger.debug({ event: 'output_transcription', sessionId: state.sessionId, textLength: text.length }, 'Output transcription received');
+      logger.debug({ event: 'output_transcription', sessionId, textLength: text.length }, 'Output transcription received');
       sendToClient(ws, { type: 'output_transcription', text });
     },
     onInputTranscription: (text) => {
-      logger.debug({ event: 'input_transcription', sessionId: state.sessionId, textLength: text.length }, 'Input transcription received');
+      logger.debug({ event: 'input_transcription', sessionId, textLength: text.length }, 'Input transcription received');
       sendToClient(ws, { type: 'input_transcription', text });
     },
     onInterrupted: () => {
-      logger.debug({ event: 'interrupted', sessionId: state.sessionId }, 'Gemini interrupted signal received');
+      logger.debug({ event: 'interrupted', sessionId }, 'Gemini interrupted signal received');
       sendToClient(ws, { type: 'interrupted' });
     },
     onError: (error) => {
       logger.error(
-        { event: 'gemini_error', code: 'RELAY_GEMINI_001', err: error, sessionId: state.sessionId, action: 'Check Gemini API status' },
+        { event: 'gemini_error', code: 'RELAY_GEMINI_001', err: error, sessionId, action: 'Check Gemini API status' },
         'Gemini session error',
       );
       sendToClient(ws, { type: 'error', message: error.message });
+      clearTimers(state);
     },
     onClose: () => {
-      logger.info({ event: 'gemini_close', sessionId: state.sessionId }, 'Gemini session closed');
+      logger.info({ event: 'gemini_close', sessionId }, 'Gemini session closed');
       sendToClient(ws, { type: 'ended', reason: 'session_closed' });
+      clearTimers(state);
+    },
+    onToolCall: (name, args) => {
+      logger.info({ event: 'tool_call_forward', name, args, sessionId }, 'Forwarding tool call to browser');
+
+      if (name === 'end_session') {
+        const reason = (args as { reason?: string }).reason ?? 'story_complete';
+        sendToClient(ws, { type: 'ended', reason });
+        state.session?.close();
+        clearTimers(state);
+        return;
+      }
+
+      if (name === 'switch_speaker') {
+        const a = args as { speaker?: string; name?: string };
+        if (a.name) {
+          sendToClient(ws, { type: 'speaker_switch', speaker: 'character', name: a.name });
+        }
+        return;
+      }
+
+      if (name === 'announce_choice') {
+        const a = args as { choices?: { title: string; description: string }[] };
+        if (a.choices) {
+          sendToClient(ws, { type: 'choices', choices: a.choices });
+        }
+        return;
+      }
+
+      logger.warn({ event: 'unknown_tool_call', name, sessionId }, 'Received unknown tool call from Gemini');
     },
   });
 
-  const sessionId = generateSessionId();
   state.session = session;
-  state.sessionId = sessionId;
 
-  logger.info({ event: 'gemini_session_created', sessionId, scenarioId: msg.scenarioId, topic: msg.topic }, 'Gemini session created successfully');
+  logger.info({ event: 'gemini_session_created', sessionId, scenarioId: msg.scenarioId, topic: msg.topic, voiceName }, 'Gemini session created successfully');
 
-  // Trigger the model's first narration turn before notifying the browser
-  session.sendText('Begin the scene.');
+  // ── Safety net timers ─────────────────────────────────────────────────────
+
+  state.wrapUpTimer = setTimeout(() => {
+    logger.info({ event: 'wrap_up_inject', sessionId }, 'Injecting wrap-up at 9 min');
+    state.session?.sendText('Begin wrapping up naturally. Deliver your closing observation and call end_session.');
+  }, WRAP_UP_MS);
+
+  state.forceCloseTimer = setTimeout(() => {
+    logger.warn({ event: 'force_close', sessionId }, 'Force-closing at 10 min');
+    state.session?.close();
+    sendToClient(ws, { type: 'ended', reason: 'timeout' });
+    clearTimers(state);
+  }, FORCE_CLOSE_MS);
+
+  // Trigger the model's first turn before notifying the browser
+  session.sendText('The student has called you. Pick up the call.');
 
   // Notify browser that the session is ready
   sendToClient(ws, { type: 'connected', sessionId });
@@ -215,8 +292,9 @@ async function handleStart(
 
 // ─── Disconnect handler ───────────────────────────────────────────────────────
 
-function handleBrowserClose(state: RelayState): void {
+function handleBrowserClose(ws: WSContext, state: RelayState): void {
   logger.info({ event: 'ws_close', sessionId: state.sessionId }, 'Browser WebSocket closed');
   state.session?.close();
   state.session = null;
+  clearTimers(state);
 }

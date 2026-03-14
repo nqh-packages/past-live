@@ -13,6 +13,7 @@ import {
   $sessionStartTime,
   $characterName,
   $isSpeaking,
+  $activeChoices,
   appendOutputTranscript,
   appendInputTranscript,
   addMessage,
@@ -26,6 +27,7 @@ import { createSummaryArtifact } from './summary';
 export interface ConnectConfig {
   scenarioId?: string;
   topic?: string;
+  voiceName?: string;
   backendWsUrl: string;
 }
 
@@ -63,8 +65,8 @@ export function connectSession(config: ConnectConfig): void {
 
   ws.onopen = () => {
     const startMsg = config.scenarioId
-      ? { type: 'start', scenarioId: config.scenarioId }
-      : { type: 'start', topic: config.topic };
+      ? { type: 'start', scenarioId: config.scenarioId, voiceName: config.voiceName }
+      : { type: 'start', topic: config.topic, voiceName: config.voiceName };
     ws!.send(JSON.stringify(startMsg));
   };
 
@@ -126,11 +128,6 @@ function handleServerMessage(msg: Record<string, unknown>): void {
         // Backward compat: still update $outputTranscript
         appendOutputTranscript(text);
 
-        // Corpsing detection: "even the storyteller" → switch sender to NARRATOR
-        if (text.toLowerCase().includes('even the storyteller')) {
-          $characterName.set('NARRATOR');
-        }
-
         // Message accumulation: character name is sender for model speech
         // addMessage handles same-sender accumulation vs new message automatically
         const sender = $characterName.get();
@@ -146,7 +143,21 @@ function handleServerMessage(msg: Record<string, unknown>): void {
         // Gemini sends cumulative text (not deltas) — replace rather than append
         // to avoid duplicating previously displayed content
         replaceLastMessage('YOU', text);
+        // Auto-dismiss choice cards when student speaks
+        if ($activeChoices.get()) $activeChoices.set(null);
       }
+      break;
+    }
+
+    case 'speaker_switch': {
+      const name = (msg as { name?: string }).name;
+      if (name) $characterName.set(name);
+      break;
+    }
+
+    case 'choices': {
+      const choices = (msg as { choices?: { title: string; description: string }[] }).choices;
+      if (choices) $activeChoices.set(choices);
       break;
     }
 
@@ -160,6 +171,7 @@ function handleServerMessage(msg: Record<string, unknown>): void {
 
     case 'ended': {
       clearAudioQueue();
+      $activeChoices.set(null);
       const durationMs = Date.now() - $sessionStartTime.get();
       createSummaryArtifact({
         scenarioId: $scenarioId.get(),

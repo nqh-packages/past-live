@@ -4,6 +4,7 @@
  * @exports - $status, $outputTranscript, $inputTranscript, $error, $sessionId, $scenarioId,
  *            $topic, $summary, $isActive, $isConnecting, $sessionStartTime,
  *            $messages, $isSpeaking, $micEnabled, $micLevel, $characterName, $previewData,
+ *            $activeChoices, Choice,
  *            addMessage, appendToLastMessage, replaceLastMessage, resetSession,
  *            appendOutputTranscript, appendInputTranscript
  */
@@ -54,16 +55,34 @@ export const $micLevel = atom<number>(0);
 /**
  * Character name for the current session.
  * Sourced from preview JSON `characterName` field.
- * Preset scenarios use PRESET_CHARACTER_NAMES; open topics default to 'NARRATOR'.
+ * Preset scenarios use PRESET_CHARACTER_NAMES. Empty string until set — there is no narrator.
  */
-export const $characterName = atom<string>('NARRATOR');
+export const $characterName = atom<string>('');
 
 /** Maps scenarioId → character display name used in the chat log */
 export const PRESET_CHARACTER_NAMES: Record<string, string> = {
   'constantinople-1453': 'CONSTANTINE XI',
-  'moon-landing-1969': 'MISSION CONTROL',
-  'mongol-empire-1206': 'GENGHIS KHAN',
+  'moon-landing-1969': 'GENE KRANZ',
+  'mongol-empire-1206': 'JAMUKHA',
 };
+
+// ─── Choice cards ──────────────────────────────────────────────────────────────
+
+/**
+ * A tappable choice card presented by the `announce_choice` tool.
+ * Matches the `choices` server message shape.
+ */
+export interface Choice {
+  title: string;
+  description: string;
+}
+
+/**
+ * Active choices presented via the `announce_choice` tool call.
+ * Null when no choices are pending. Set to null on dismissal or session reset.
+ * Components auto-dismiss when student speaks (voice input clears this store).
+ */
+export const $activeChoices = atom<Choice[] | null>(null);
 
 // ─── Session preview data ──────────────────────────────────────────────────────
 
@@ -132,7 +151,8 @@ export function resetSession(): void {
   $isSpeaking.set(false);
   $micEnabled.set(false);
   $micLevel.set(0);
-  $characterName.set('NARRATOR');
+  $characterName.set('');
+  $activeChoices.set(null);
   $previewData.set(null);
   $error.set('');
   $sessionId.set('');

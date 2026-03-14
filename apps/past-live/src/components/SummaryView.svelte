@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
-   * @what - Summary view island — reads session artifact from store or sessionStorage
-   * @why - Renders debrief after session ends; falls back to mock if no artifact exists
+   * @what - Call log island — reads session artifact from store or sessionStorage
+   * @why - Renders the post-call summary: who, duration, key facts, what happened, next calls
    */
   import { onMount } from 'svelte';
   import { loadSummaryArtifact, formatDuration } from '../lib/liveSession/summary';
@@ -11,7 +11,7 @@
     scenarioId: 'constantinople-1453',
     topic: '',
     scenarioTitle: 'Fall of Constantinople',
-    role: "Emperor's advisor",
+    role: 'Constantine XI',
     durationMs: 754000,
     summaryFacts: [
       'Mehmed II moved 72 Ottoman ships overland on greased logs to bypass the harbor chain.',
@@ -24,10 +24,10 @@
     relatedScenarios: ['moon-landing-1969', 'mongol-empire-1206'],
   };
 
-  const SCENARIO_LABELS: Record<string, { headline: string; year: string }> = {
-    'constantinople-1453': { headline: 'The walls are falling.', year: '1453' },
-    'moon-landing-1969': { headline: '25 seconds of fuel.', year: '1969' },
-    'mongol-empire-1206': { headline: 'The khan rides.', year: '1206' },
+  const SCENARIO_LABELS: Record<string, { person: string; era: string }> = {
+    'constantinople-1453': { person: 'Constantine XI', era: 'Constantinople, 1453' },
+    'moon-landing-1969': { person: 'Gene Kranz', era: 'Apollo 11, 1969' },
+    'mongol-empire-1206': { person: 'Jamukha', era: 'Mongol Steppe, 1206' },
   };
 
   let summary = $state<SummaryArtifact>(FALLBACK_SUMMARY);
@@ -45,32 +45,25 @@
       .map((id) => {
         const label = SCENARIO_LABELS[id];
         if (!label) return null;
-        return {
-          id,
-          headline: label.headline.replace(/[.!?]+$/, ''),
-          year: label.year,
-        };
+        return { id, person: label.person, era: label.era };
       })
-      .filter(Boolean) as { id: string; headline: string; year: string }[]
+      .filter(Boolean) as { id: string; person: string; era: string }[]
   );
 </script>
 
 {#if loaded}
-  <!-- Dispatch header -->
+  <!-- Call ended header -->
   <section class="w-full mb-10">
     <div class="relative pl-[72px]">
       <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
       <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
-        &gt; transmission ended
+        &gt; call ended
       </div>
       <div class="font-mono text-[10px] text-foreground/30 mt-1">
-        &gt; scenario: {summary.scenarioTitle}
+        &gt; you called: {summary.role}
       </div>
       <div class="font-mono text-[10px] text-foreground/30 mt-1">
-        &gt; role: {summary.role}
-      </div>
-      <div class="font-mono text-[10px] text-foreground/30 mt-1">
-        &gt; session duration: {duration}
+        &gt; duration: {duration}
       </div>
     </div>
   </section>
@@ -101,17 +94,26 @@
     </div>
   </section>
 
-  <!-- Next Briefing -->
+  <!-- Character's Message (Phase 2: populated from Gemini post-call summary) -->
+  <section class="mb-12">
+    <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">CHARACTER'S MESSAGE</h2>
+    <p class="font-mono text-sm text-foreground/40 italic leading-relaxed pl-4 border-l border-accent/15">
+      "Thank you, stranger. You asked the right questions."
+    </p>
+  </section>
+
+  <!-- Call Someone Else -->
   {#if relatedLinks.length > 0}
     <section class="mb-12">
-      <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">NEXT BRIEFING</h2>
+      <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">CALL SOMEONE ELSE</h2>
       <div class="flex flex-col gap-3">
         {#each relatedLinks as s (s.id)}
           <a
             href={`/session?scenario=${s.id}`}
             class="border border-border rounded-sm px-4 py-3 font-mono text-sm text-foreground/30 hover:text-foreground hover:border-accent/20 transition-colors"
+            aria-label="Call {s.person}, {s.era}"
           >
-            &gt; {s.headline}, {s.year}
+            &gt; {s.person} · {s.era}
           </a>
         {/each}
       </div>
@@ -123,15 +125,16 @@
     <a
       href="/app"
       class="inline-block border border-accent/30 text-accent font-mono text-[11px] tracking-[0.12em] uppercase px-6 py-3 rounded-sm hover:bg-accent/5 transition-colors"
+      aria-label="Go to home screen to call someone else"
     >
-      new session
+      call someone else
     </a>
   </section>
 {:else}
   <!-- Loading placeholder -->
   <div class="flex items-center justify-center min-h-[40vh]">
     <span class="font-mono text-[10px] text-foreground/20 tracking-[0.12em] animate-pulse">
-      &gt; retrieving debrief...
+      &gt; loading call log...
     </span>
   </div>
 {/if}

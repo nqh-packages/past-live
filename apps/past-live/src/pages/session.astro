@@ -1,7 +1,7 @@
 ---
 /**
- * @what - Session screen for Past, Live
- * @why - In-session UI: countdown, chat log, waveform, mic button, hint bar, timer, text input
+ * @what - Session screen for Past, Live — in-call UI
+ * @why - Phone call layout: character portrait banner, timer, chat log, choice cards, call controls
  */
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
@@ -11,12 +11,12 @@ import ChatLog from "@/components/ChatLog.svelte";
 import SpeakingIndicator from "@/components/SpeakingIndicator.svelte";
 import SessionTimer from "@/components/SessionTimer.svelte";
 import SessionInput from "@/components/SessionInput.svelte";
+import SessionChoiceCards from "@/components/SessionChoiceCards.svelte";
 
 const url = new URL(Astro.request.url);
 const scenarioId = url.searchParams.get("scenario") ?? undefined;
 const topic = url.searchParams.get("topic") ?? undefined;
 const micParam = url.searchParams.get("mic") === "1";
-const camParam = url.searchParams.get("cam") === "1";
 
 // Guard: no valid session params → redirect to home
 if (!scenarioId && !topic) return Astro.redirect('/app');
@@ -24,19 +24,19 @@ if (!scenarioId && !topic) return Astro.redirect('/app');
 // VITE_* not available in Svelte islands — must pass as prop from Astro page
 const backendWsUrl = import.meta.env.PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8787/ws";
 
-// Build human-readable dispatch line
-const dispatchLabel = scenarioId
+// Build human-readable call label (character name + era)
+const callLabel = scenarioId
   ? {
-      "constantinople-1453": "constantinople 1453 · emperor's advisor",
-      "moon-landing-1969": "apollo 11 · mission control",
-      "mongol-empire-1206": "mongol steppe 1206 · khan's rival",
+      "constantinople-1453": "constantine xi · constantinople, 1453",
+      "moon-landing-1969": "gene kranz · apollo 11, 1969",
+      "mongol-empire-1206": "jamukha · mongol steppe, 1206",
     }[scenarioId] ?? scenarioId
   : topic
-  ? `open study: ${topic}`
-  : "open session";
+  ? `calling: ${topic}`
+  : "call in progress";
 ---
 
-<BaseLayout title="Past, Live — Session Active">
+<BaseLayout title="Past, Live — Connected">
   <!--
     Color theme injection: reads OKLCH values from sessionStorage (set by SessionPreview overlay)
     and applies them as CSS custom properties on the session root element.
@@ -69,12 +69,11 @@ const dispatchLabel = scenarioId
     topic={topic}
     backendWsUrl={backendWsUrl}
     mic={micParam}
-    cam={camParam}
   />
 
   <main class="flex flex-col min-h-screen min-h-dvh px-4 sm:px-5 py-6 sm:py-8 max-w-md mx-auto">
 
-    <!-- Dispatch status header + timer row -->
+    <!-- Call header: character name + era + timer -->
     <header class="w-full mb-4">
       <div class="relative pl-[72px]">
         <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
@@ -82,37 +81,37 @@ const dispatchLabel = scenarioId
         <div
           class="absolute top-0 left-0 w-8 h-8 rounded-full border border-accent/20 overflow-hidden bg-surface"
           id="avatar-badge"
-          aria-label="Character avatar"
+          aria-label="Character portrait"
         >
           <span class="flex items-center justify-center h-full text-[8px] text-foreground/20" id="avatar-placeholder"></span>
         </div>
         <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
-          &gt; session active
+          &gt; connected
         </div>
         <div class="font-mono text-[10px] text-foreground/30 mt-0.5">
-          &gt; {dispatchLabel}
+          &gt; {callLabel}
         </div>
+      </div>
+
+      <!-- Timer: counts up, always visible -->
+      <div class="w-full pl-[72px] mt-2">
+        <SessionTimer client:load />
       </div>
     </header>
 
-    <!-- Session timer (hidden until 5:00 remaining) -->
-    <div class="w-full pl-[72px] mb-4">
-      <SessionTimer client:load />
-    </div>
-
-    <!-- Scene banner (16:9) — populated from sessionStorage sceneImage -->
+    <!-- Character portrait banner (16:9) — populated from sessionStorage avatar -->
     <div
       class="w-full aspect-video rounded-sm border border-border bg-surface overflow-hidden mb-4"
-      aria-label="Scene image"
+      aria-label="Character portrait"
       id="scene-banner"
     >
       <span
         class="flex items-center justify-center h-full font-mono text-[10px] text-foreground/20 tracking-wider"
         id="scene-placeholder"
-      >[ scene ]</span>
+      >[ portrait ]</span>
     </div>
 
-    <!-- Scene + avatar hydration from sessionStorage -->
+    <!-- Portrait hydration from sessionStorage — shows avatar as banner -->
     <script is:inline>
       (function() {
         try {
@@ -120,23 +119,37 @@ const dispatchLabel = scenarioId
           if (!raw) return;
           var data = JSON.parse(raw);
 
-          // 1. Scene banner — full-width 16:9 landscape image
-          if (data && data.sceneImage) {
+          // 1. Portrait banner — use avatar as the 16:9 banner image
+          if (data && data.avatar) {
             var banner = document.getElementById('scene-banner');
             var scenePlaceholder = document.getElementById('scene-placeholder');
             if (banner && scenePlaceholder) {
+              var portraitImg = document.createElement('img');
+              portraitImg.src = 'data:image/jpeg;base64,' + data.avatar;
+              portraitImg.alt = (data.characterName || 'Character') + ' portrait';
+              portraitImg.className = 'w-full h-full object-cover object-top';
+              portraitImg.width = 768;
+              portraitImg.height = 432;
+              scenePlaceholder.remove();
+              banner.appendChild(portraitImg);
+            }
+          } else if (data && data.sceneImage) {
+            // Fallback: use sceneImage if no avatar yet
+            var banner2 = document.getElementById('scene-banner');
+            var placeholder2 = document.getElementById('scene-placeholder');
+            if (banner2 && placeholder2) {
               var sceneImg = document.createElement('img');
               sceneImg.src = 'data:image/jpeg;base64,' + data.sceneImage;
               sceneImg.alt = (data.historicalSetting || 'Historical scene');
               sceneImg.className = 'w-full h-full object-cover';
               sceneImg.width = 768;
               sceneImg.height = 432;
-              scenePlaceholder.remove();
-              banner.appendChild(sceneImg);
+              placeholder2.remove();
+              banner2.appendChild(sceneImg);
             }
           }
 
-          // 2. Avatar badge — small circular portrait injected into the header
+          // 2. Avatar badge — small circular portrait in header
           if (data && data.avatar) {
             var badge = document.getElementById('avatar-badge');
             var avatarPlaceholder = document.getElementById('avatar-placeholder');
@@ -165,15 +178,12 @@ const dispatchLabel = scenarioId
       <ChatLog client:load />
     </div>
 
-    <!-- Persistent hint bar -->
-    <div
-      class="w-full text-center font-mono text-[10px] text-foreground/20 tracking-[0.06em] mb-3"
-      aria-label="Interaction hint"
-    >
-      click mic to mute · or type below
+    <!-- Choice cards — shown when announce_choice tool fires -->
+    <div class="w-full mb-3">
+      <SessionChoiceCards client:load />
     </div>
 
-    <!-- Mic button — thumb-reachable at bottom of screen -->
+    <!-- Call controls bottom bar — MicButton used until CallControls (Batch 3) is ready -->
     <div class="flex justify-center mb-3">
       <MicButton client:load />
     </div>

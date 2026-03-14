@@ -11,18 +11,27 @@ import {
   StartSensitivity,
   EndSensitivity,
 } from '@google/genai';
+import { TOOL_DECLARATIONS } from './behavioral-rules.js';
 import { logger } from './logger.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface GeminiSessionConfig {
   systemPrompt: string;
+  /** Voice name from the 30-voice catalog. Falls back to 'Charon' if omitted. */
+  voiceName?: string;
   onAudio(data: string): void;
   onOutputTranscription(text: string): void;
   onInputTranscription(text: string): void;
   onInterrupted(): void;
   onError(error: Error): void;
   onClose(): void;
+  /**
+   * Called when Gemini invokes a function tool. Relay handles routing to browser.
+   * @param name - Function name: 'end_session' | 'switch_speaker' | 'announce_choice'
+   * @param args - Parsed arguments object from the function call
+   */
+  onToolCall?(name: string, args: Record<string, unknown>): void;
 }
 
 export interface GeminiSession {
@@ -36,7 +45,7 @@ export interface GeminiSession {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
-const VOICE = 'Charon';
+const DEFAULT_VOICE = 'Charon';
 
 // ─── Client (singleton per process) ──────────────────────────────────────────
 
@@ -55,11 +64,16 @@ const ai = new GoogleGenAI({
  * @inference - GeminiSessionConfig callbacks are called from the Gemini onmessage
  *   handler on the same event loop tick; callers must not assume ordering between
  *   onAudio / onOutputTranscription within a single model turn.
+ *
+ * @pitfall - voiceName is locked at connect time. Cannot change mid-session.
+ *   Flash selects the voice during session-preview; relay passes it here.
  */
 export async function createGeminiSession(
   config: GeminiSessionConfig,
 ): Promise<GeminiSession> {
-  logger.debug({ event: 'gemini_connecting', model: MODEL, voice: VOICE }, 'Connecting to Gemini Live API');
+  const voice = config.voiceName ?? DEFAULT_VOICE;
+
+  logger.debug({ event: 'gemini_connecting', model: MODEL, voice }, 'Connecting to Gemini Live API');
 
   let audioChunkCount = 0;
 
@@ -69,7 +83,7 @@ export async function createGeminiSession(
       responseModalities: [Modality.AUDIO],
       systemInstruction: { parts: [{ text: config.systemPrompt }] },
       speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } },
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
       },
       enableAffectiveDialog: true,
       inputAudioTranscription: {},
@@ -84,16 +98,44 @@ export async function createGeminiSession(
         },
       },
       contextWindowCompression: { slidingWindow: {} },
+      tools: TOOL_DECLARATIONS,
     },
     callbacks: {
       onopen: () => {
-        logger.info({ event: 'gemini_connected', model: MODEL, voice: VOICE }, 'Gemini Live session connected');
+        logger.info({ event: 'gemini_connected', model: MODEL, voice }, 'Gemini Live session connected');
       },
       onmessage: (response) => {
+        // ── Tool calls ───────────────────────────────────────────────────────
+        // NON_BLOCKING: model continues speaking while tool response is sent.
+        if (response.toolCall?.functionCalls) {
+          for (const fc of response.toolCall.functionCalls) {
+            const name = fc.name ?? '';
+            const args = (fc.args ?? {}) as Record<string, unknown>;
+
+            logger.info(
+              { event: 'tool_call', name, args },
+              'Gemini tool call received',
+            );
+
+            config.onToolCall?.(name, args);
+
+            // Respond immediately so the model isn't blocked
+            session.sendToolResponse({
+              functionResponses: [
+                {
+                  id: fc.id,
+                  name: fc.name,
+                  response: { result: 'ok' },
+                },
+              ],
+            });
+          }
+        }
+
         const content = response.serverContent;
         if (!content) return;
 
-        // Audio from model turn parts
+        // ── Audio from model turn parts ──────────────────────────────────────
         if (content.modelTurn?.parts) {
           for (const part of content.modelTurn.parts) {
             if (part.inlineData?.data) {
@@ -109,7 +151,7 @@ export async function createGeminiSession(
           }
         }
 
-        // Input transcription (what the student said)
+        // ── Input transcription (what the student said) ──────────────────────
         if (content.inputTranscription?.text) {
           logger.debug(
             { event: 'input_transcription', text: content.inputTranscription.text },
@@ -118,7 +160,7 @@ export async function createGeminiSession(
           config.onInputTranscription(content.inputTranscription.text);
         }
 
-        // Output transcription (what the agent said)
+        // ── Output transcription (what the agent said) ───────────────────────
         if (content.outputTranscription?.text) {
           logger.debug(
             { event: 'output_transcription', text: content.outputTranscription.text },
@@ -127,7 +169,7 @@ export async function createGeminiSession(
           config.onOutputTranscription(content.outputTranscription.text);
         }
 
-        // Interruption signal — browser should clear playback queue
+        // ── Interruption signal — browser should clear playback queue ────────
         if (content.interrupted) {
           logger.debug({ event: 'gemini_interrupted' }, 'Gemini interrupted signal received');
           config.onInterrupted();
@@ -170,7 +212,7 @@ export async function createGeminiSession(
     },
 
     sendAudioEnd(): void {
-      // Flush cached audio — maps to hold-to-speak button release
+      // Flush cached audio — maps to mute button press
       session.sendRealtimeInput({ audioStreamEnd: true });
     },
 
