@@ -1,20 +1,19 @@
 # Phase 2: Judge-Impressors
 
-After Phase 1 (feedback fixes) ships. Makes the demo impressive, not just workable.
+After the "call from the past" pivot ships. Makes the demo impressive, not just workable.
 
 ## Items
 
 | # | Item | Effort | Impact |
 |---|------|--------|--------|
 | 1 | Firestore profiles | High | Personalization depth, GCP requirement |
-| 2 | Post-session Gemini summary | Medium | Real learning verification |
-| 3 | Camera demo moment | Medium | Vision capability proof for judges |
-| 4 | Returning visit warm-up | Low | Continuity, "Netflix up next" mechanic |
-| 5 | Student profile persistence | Medium | Foundation for warm-ups + personalization |
-| 6 | Social sharing card | Medium | Viral loop, memorable takeaway |
-| 7 | Persistent avatar | Low | Auth anchor, progress tracking |
-| 8 | Auth strategy (anonymous-first) | Medium | Frictionless onboarding |
-| 9 | LLM dogfooding support | Low | Claude can dogfood without audio |
+| 2 | Post-call Gemini summary | Medium | Real learning verification (replace hardcoded facts) |
+| 3 | Returning visit recognition | Low | Character references past calls. "Netflix up next" mechanic |
+| 4 | Student profile persistence | Medium | Foundation for recognition + personalization |
+| 5 | Call receipt share card | Medium | Viral loop — character's farewell message as Instagram story |
+| 6 | Persistent avatar | Low | Auth anchor, progress tracking |
+| 7 | Auth strategy (anonymous-first) | Medium | Frictionless onboarding |
+| 8 | Structured logging + text-only test endpoint | Low | Claude can dogfood without audio |
 
 ## Item Details
 
@@ -22,125 +21,101 @@ After Phase 1 (feedback fixes) ships. Makes the demo impressive, not just workab
 
 | Aspect | Detail |
 |--------|--------|
-| Why | GCP requirement satisfied. Personalization depth impresses judges |
-| Schema | `StudentProfile` — see CLAUDE.md for full TypeScript interface |
-| Collection | Name + age collected conversationally by character (NOT a form) |
-| Recognition | Cookie/localStorage for returning visits |
+| Why | GCP requirement. Personalization impresses judges |
+| Schema | `StudentProfile` — see CLAUDE.md |
+| Collection | Name collected conversationally during first call |
+| Recognition | Clerk auth + Firestore. Cookie fallback for anonymous |
 | Backend | Firestore Application Default Credentials on Cloud Run |
-| Fields | name, age, learningPatterns, personality, sessions[], nextWarmUp, suggestedScenarios |
 
-### #2: Post-Session Gemini Summary
+### #2: Post-Call Gemini Summary
 
 | Aspect | Detail |
 |--------|--------|
-| Why | Current summary is deterministic (hardcoded facts). Real extraction = real learning verification |
-| Current | `summary.ts` uses `SCENARIO_META` — same 5 facts regardless of conversation |
+| Why | Current call log uses hardcoded facts. Real extraction from transcript = real learning |
+| Current | `summary.ts` uses `SCENARIO_META` — same facts regardless of conversation |
 | Target | Send transcript to `gemini-3-flash-preview` with structured output |
-| Prompt | "Extract 3-5 key historical facts discussed, compare student decisions to actual history, suggest 3 related topics" |
-| Output schema | `{ keyFacts: string[], outcomeComparison: string, suggestedTopics: string[] }` |
+| Prompt | "Extract 3-5 key historical facts from this call. Compare the student's advice to what actually happened. Suggest 3 related people to call next. Write the character's farewell message (positive observation about the student)." |
+| Output | `{ keyFacts: string[], outcomeComparison: string, characterMessage: string, suggestedCalls: { name: string, era: string, hook: string }[] }` |
 | Save | Extract → Firestore student profile |
-| Files | `summary.ts` (replace deterministic), new backend endpoint, `SummaryView.svelte` |
 
-### #3: Camera Demo Moment
-
-| Aspect | Detail |
-|--------|--------|
-| Why | Shows vision capability. Live API supports sparse video input |
-| Prerequisite | Video checkbox must be checked in session preview (camera = ON for session). If unchecked, this moment is skipped entirely |
-| When | At climax (Step 5 twist). Agent offers: "Want to try something?" |
-| Accept flow | 3-sec camera burst via Gemini Live `sendRealtimeInput({ video })`. Agent reacts to expression |
-| Skip flow | Agent uses affective dialog: "You sound nervous, advisor! Constantinople needs confidence!" |
-| UI | Clear **Skip** button. Never guilt-trip. "Fair enough — I'll imagine your brave face. It's magnificent." |
-| Privacy | No photo stored. Frames streamed and discarded. `MEDIA_RESOLUTION_LOW` (258 tokens/frame) |
-| Demo video | Show this working ONCE. Proves vision capability |
-| Token budget | 3 sec × 1fps × 258 tokens = 774 tokens total |
-| Files | `SessionManager.svelte` (camera toggle), `gemini.ts` (video frames already supported) |
-
-### #4: Returning Visit Warm-Up
+### #3: Returning Visit Recognition
 
 | Aspect | Detail |
 |--------|--------|
-| Why | Continuity. Diego: "If the first session is fire, I'll be back tomorrow" |
-| Flow | Recognize via cookie → fetch profile from Firestore → agent opens with previous session context |
-| Example | "Diego! Last time the harbor fell. Ready to try something new?" |
-| Warm-up Q | Agent-generated from previous session's `agentInsight` field |
-| Files | Home page (recognition check), system prompt (inject profile context) |
+| Why | Diego: "If the first session is fire, I'll be back tomorrow" |
+| Flow | Recognize via Clerk/cookie → fetch profile → character references past calls |
+| Example | "Back again? Last time you let the harbor fall. Ready for a new call?" |
+| Home screen | Show suggested calls based on call history |
 
-### #5: Student Profile Persistence
-
-| Aspect | Detail |
-|--------|--------|
-| Why | Foundation for warm-ups + future personalization |
-| Post-session save | Learning patterns, personality traits, effective probes, session outcome |
-| Source | Post-session Gemini call extracts structured data from transcript |
-| Update pattern | Merge new session data into existing profile. Append to sessions[] |
-| Files | Backend Firestore client, post-session extraction endpoint |
-
-### #6: Social Sharing Card
+### #4: Student Profile Persistence
 
 | Aspect | Detail |
 |--------|--------|
-| Why | Viral loop. Memorable takeaway from session. Instagram-friendly |
-| Format | Funny summary card. Downloadable image (PNG). Download button OUTSIDE the card |
-| Content | Humorous roast-style summary. Example: "If you were Khan, the Mongolian Empire would have been gone 100 years earlier" |
-| Face variation | If user photo available (camera was on), generate face variation in character outfit (head wearing character's clothes) using Gemini image model |
-| No photo | If no user photo, use character avatar + text only |
-| Files | New `SocialCard.svelte`, new backend endpoint for card generation |
+| Why | Foundation for recognition + personalization |
+| Post-call save | Learning patterns, personality, call outcome, character's message |
+| Source | Post-call Gemini extraction from transcript |
+| Update | Merge new call into existing profile. Append to calls[] |
 
-### #7: Persistent Avatar
+### #5: Call Receipt Share Card
 
 | Aspect | Detail |
 |--------|--------|
-| Why | Auth anchor, visual identity, progress tracking |
+| Why | Viral loop. Memorable takeaway. Instagram-friendly |
+| Format | Vertical card (9:16). Downloadable PNG. Download button OUTSIDE the card |
+| Content | Character's farewell message + who you called + duration + one-line outcome |
+| Example | `📞 You called: CONSTANTINE XI / "You asked the right questions, stranger." / Duration: 4:32 / The harbor fell.` |
+| No face variation | No camera = no student photo. Character portrait + text only |
+
+### #6: Persistent Avatar
+
+| Aspect | Detail |
+|--------|--------|
+| Why | Auth anchor, visual identity |
 | Location | Top-right corner of app |
-| Behavior | Links to Clerk auth. Shows avatar when signed in |
-| Storage | Saves progress to Firestore |
-| Files | Layout component, Clerk integration |
+| Behavior | Links to Clerk auth. Shows user avatar when signed in |
 
-### #8: Auth Strategy (Anonymous-First)
+### #7: Auth Strategy (Anonymous-First)
 
 | Aspect | Detail |
 |--------|--------|
-| Why | Frictionless onboarding. DO NOT force registration |
-| Flow | Anonymous-first → sign-up-later. Welcome signups, save profiles, but NEVER gate content behind auth |
+| Why | Frictionless. NEVER gate calls behind auth |
+| Flow | Anonymous-first → sign-up-later |
+| Anonymous | Full call experience, no sign-up |
+| Signed in | Profile saved, calls tracked, returning visit recognition |
 | Stack | Clerk → Firestore |
-| Anonymous | Full session experience without any sign-up |
-| Signed in | Profile saved, progress tracked, returning visit warm-ups |
-| Files | Clerk config, Firestore profile creation |
 
-### #9: LLM Dogfooding Support
+### #8: Structured Logging + Test Endpoint
 
 | Aspect | Detail |
 |--------|--------|
-| Why | Claude can dogfood the app without audio capability. Need structured logs for analysis |
-| Options | (A) Verbose event logs in console/file (all WS messages, state transitions). (B) Text-only test endpoint (bypasses audio, pure text Live API session). (C) Structured test output (JSON session transcript for automated analysis) |
-| Recommended | All three. (A) always-on in dev, (B) for automated testing, (C) for post-session analysis |
-| Files | Logger utility, test endpoint in server, structured output formatter |
+| Why | Claude can dogfood without audio. Need structured logs |
+| Pino logging | DONE — added in Phase 1 fixes |
+| Text-only endpoint | TODO — `POST /test-session` runs Live API in TEXT mode, returns JSON transcript |
+| Structured output | TODO — post-call JSON: all messages with timestamps, tool calls, duration |
 
 ## Dependencies
 
 ```
 #1 Firestore Profiles
   ↓ required by
-#5 Student Profile Persistence
+#4 Student Profile Persistence
   ↓ required by
-#4 Returning Visit Warm-Up
+#3 Returning Visit Recognition
   ↓ also requires
-#2 Post-Session Gemini Summary (provides data for #5)
+#2 Post-Call Gemini Summary (provides data for #4)
 
-#3 Camera Demo Moment (independent — requires video checkbox ON)
-#6 Social Sharing Card (requires #2 summary data, optionally camera photo)
-#7 Persistent Avatar (requires #8 auth)
-#8 Auth Strategy (requires #1 Firestore)
-#9 LLM Dogfooding (independent)
+#5 Call Receipt Share Card (requires #2 summary data)
+#6 Persistent Avatar (requires #7 auth)
+#7 Auth Strategy (requires #1 Firestore)
+#8 Logging/Testing (independent — pino already done)
 ```
 
-## Hackathon Submission Requirements (must address)
+## Hackathon Submission Requirements
 
 | Requirement | How We Address |
 |-------------|----------------|
 | Text description | Landing page + README |
 | Public code repo URL | GitHub repo with spin-up instructions |
-| Proof of GCP deployment | Screen recording of Cloud Run console OR link to deployment code |
+| Proof of GCP deployment | Screen recording of Cloud Run console |
 | Architecture diagram | On landing page + README |
-| Demo video (<4 min) | Record full flow: landing → input → preview → countdown → session → summary |
+| Demo video (<4 min) | Record full flow: landing → pick person → calling screen → conversation → hang up → call log |

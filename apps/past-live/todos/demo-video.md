@@ -6,37 +6,42 @@ Hackathon submission requirement. Must show multimodal/agentic features in real-
 
 | Step | What to Show | Approx Time |
 |------|-------------|-------------|
-| 1 | Landing page → CTA | 10s |
-| 2 | Home → multimodal input (voice OR camera scan of textbook) | 20s |
-| 3 | Session preview overlay (scene image + colors + role + character) | 15s |
-| 4 | Enter session → countdown (STANDBY → CHANNEL OPEN → INCOMING TRANSMISSION) | 5s |
-| 5 | Live voice conversation — natural speech, show the character responding | 120s |
-| 6 | **Interruption moment** — speak while model is talking, model stops | 10s |
-| 7 | Camera opt-in moment at climax (Phase 2) | 15s |
-| 8 | Session end → summary card | 15s |
-| 9 | Social sharing card download (Phase 2) | 10s |
-| **Total** | | **~3.5 min** |
+| 1 | Landing page → "Dial in" CTA | 10s |
+| 2 | Home → voice input or camera scan of textbook | 15s |
+| 3 | 3 people+moments appear → pick one | 10s |
+| 4 | Preview card → calling screen → "connected" | 10s |
+| 5 | Live voice conversation — character speaks, student asks questions | 90s |
+| 6 | **Interruption moment** — speak while character talks, character stops + responds | 10s |
+| 7 | **Choice cards** — character presents options via `announce_choice`, student taps one | 10s |
+| 8 | Student hangs up → call log (key facts + what happened + character message) | 15s |
+| 9 | **Returning visit** — reopen app, character recognizes student, references past call | 15s |
+| **Total** | | **~3 min** |
+
+**Scenario**: TBD — decide before recording.
 
 ## Must Demonstrate (hackathon requirements)
 
 | Requirement | How to Show |
 |-------------|-------------|
-| Real-time voice | Visible waveform animation + chat log updates live |
-| Natural interruption (barge-in) | Deliberately speak while model talks → model stops → responds |
+| Real-time voice | Chat log updates live as character speaks |
+| Natural interruption (barge-in) | Speak while character talks → character stops → responds to new input |
+| Tool calling | Choice cards appear mid-call (announce_choice). Call ends via end_session |
 | Multimodal input | Camera scan OR voice topic on home screen |
 | Gemini Live API is core | Voice IS the entire interaction |
-| GCP backend | Can mention "Cloud Run" verbally during the pitch |
+| GCP backend | Mention "Cloud Run" verbally during pitch |
+| Personalization | Returning visit shows character remembering past call |
 
 ## Pitch Points (weave into demo)
 
-- What problem: "Static timelines don't stick. We make you live through history"
-- Value: "Learning through role-play — backed by research on elaborative interrogation"
-- Tech: "Gemini Live API with affective dialog, natural VAD, zero-latency voice"
+- What problem: "Static timelines don't stick. We let you call the people who lived it"
+- Value: "Learning through conversation — backed by research on elaborative interrogation and emotional encoding"
+- Tech: "Gemini Live API with affective dialog, function calling, Flash for topic intelligence, auto voice selection"
+- Differentiator: "No wrong answers. The character reacts to YOU, not a script"
 
 ## Tips
 
 - Use headphones (prevent echo → prevent self-interruption)
 - Quiet room, good mic
-- Prepare Constantinople scenario (most dramatic)
-- Show the edit flow (preview → change role → regenerate)
-- 4 minutes MAX — rehearse once
+- Rehearse once — know which questions to ask
+- Show the choice card tap (proves tool calling)
+- 4 minutes MAX

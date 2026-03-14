@@ -1,517 +1,618 @@
 # Past, Live — UX Details
 
-Comprehensive UX decisions from persona council validation (2026-03-13). 6 personas tested, 8 decisions made.
+"Call the past" — students call historical figures to learn through conversation.
 
-**Source:** `design/research/council-verdict.md` | `design/research/personas.md`
+**Source:** Persona councils (2026-03-13, 2026-03-14) | Huy's live testing sessions
+
+---
+
+## Core Mental Model
+
+```
+Student is curious about something
+  → Types topic or picks a person
+  → Flash returns 3 people+moments to call
+  → Student picks one
+  → Calling screen (iPhone-style)
+  → Character picks up, already knows who's calling (profile from Firestore)
+  → Conversation: character tells their story, student asks questions
+  → Student hangs up OR character wraps up
+  → Call log: key facts, what happened after, character's message
+  → "Call someone else" (suggested next)
+```
+
+The student is the CALLER. They dial into the past. The character answers.
 
 ---
 
 ## Decision Summary
 
-| # | Decision | Choice | Source |
-|---|----------|--------|--------|
-| 1 | Camera mechanic | Demo-only: opt-in for users, shown in video for judges | Council blocker — 6/6 rejected |
-| 2 | Text input | Hybrid: agent speaks, student can speak OR type | Council blocker — 4/6 voice-blocked |
-| 3 | Character breaking | Never break character. Probing/hints all in-character | Council friction — 4/6 trust-destroyed |
-| 4 | Onboarding | Instant scene — under 30 sec to action, zero tutorials | Council universal — 6/6 slow = quit |
-| 5 | Post-session | Key facts summary + "what actually happened" comparison | Council friction — 5/6 can't verify learning |
-| 6 | Scenario selection | Menu + input hybrid: 3 cards + open input field | Maya's Netflix insight + judges need to see demos |
-| 7 | Session length | Flexible with natural ending (7-14 min) | Diego 5min, Aisha 45min, API max 15min |
-| 8 | Corpsing rule | Rare narrator break — max 1x per session, must be earned | Huy: "like a real actor on set" |
+| # | Decision | Choice |
+|---|----------|--------|
+| 1 | Camera | Input only (textbook scan). No camera during call |
+| 2 | Voice + Text | Mic ON by default (phone call). Mute toggle. Text always available. Hang up button |
+| 3 | Character lock | No narrator. Everything is the character. Multi-character via `switch_speaker` tool |
+| 4 | Onboarding | Profile loaded from Firestore. Character knows the student. Zero tutorials |
+| 5 | Post-call | Call log: who, duration, key facts, what happened after, character's message, next calls |
+| 6 | Session length | Natural conversation. 10 min hard max. Timer counts UP (phone call style) |
+| 7 | Emotion | Clear boundaries: emotion serves learning, not attachment |
+| 8 | Topic selection | 3 person+moment cards from Flash. Preset portraits on home screen |
+| 9 | Tone | Character-driven. No blanket "humor mandatory" — an emperor under siege is intense, an inventor is playful |
+| 10 | Privacy | Automated voice disclaimer before call. Transcripts saved, audio never recorded |
 
 ---
 
-## 1. Camera: Demo-Only
+## 1. Camera: Input Only
 
-**Problem:** 6/6 personas rejected "Show Me Your Face." Tomás/Jun would uninstall. Zara would block on family devices.
+| Context | Camera |
+|---------|--------|
+| Home screen: scan textbook/notes | Camera ON — Gemini Flash vision → topic extraction |
+| During the call | Camera OFF. No video. Audio-only phone call |
+| Post-call | No camera |
 
-**Solution:**
-
-| Context | Camera Behavior |
-|---------|----------------|
-| Demo video (for judges) | Show camera moment working once — proves vision capability |
-| Step 1 (input scan) | Camera ON — student shows textbook. Regular Gemini vision call, NOT Live API |
-| Steps 2-10 (role-play) | Camera OFF by default |
-| Climax moment | One-time opt-in prompt: "Want to try something?" with clear **Skip** button |
-| If skipped | Agent uses affective dialog instead: "You sound nervous, advisor!" — same emotional interactivity, zero camera |
-
-**System prompt rule:** Never guilt-trip skipping camera. If student declines: "Fair enough. I'll imagine your brave face — it's magnificent."
-
-**Privacy:**
-- No photo stored, ever
-- Camera frames processed in real-time via Gemini, discarded immediately
-- App UI shows: "Camera is off" indicator during role-play
+Camera is for INPUT (showing what you're studying), never for the call itself. Persona council: 3/6 blocked on camera during sessions.
 
 ---
 
-## 2. Voice + Text Input: Auto-Mic Mode
+## 2. Voice + Text: Phone Call Mode
 
-**Problem:** Jun (accent anxiety), Tomás (family hearing), Maya (bedroom-only) can't always speak. AND hold-to-talk is unintuitive on web (David/Huy feedback 2026-03-13).
+Mic auto-activates when the call connects. Student is on a phone call — mic should be ON.
 
-**Solution:** Mic auto-activates on session entry. Mute/unmute toggle. Text always available.
+### Call Controls (iPhone-style)
 
 ```
-┌─────────────────────────────┐
-│  [Character portrait]        │
-│  ▁▃▅▇▅▃▁  (waveform)        │
-│  > [DISPATCH] The harbor...  │
-│  > [YOU] Should we close..   │
-│  click mic to mute · type    │
-│  ┌────────────────────────┐  │
-│  │ 🎙️ channel open       │  │
-│  └────────────────────────┘  │
-│  ┌────────────────────────┐  │
-│  │ Type a response...     │  │
-│  └────────────────────────┘  │
-└─────────────────────────────┘
+┌─────────────────────────┐
+│  [🔈 speaker]  [🟥 end]  [🎙️ mute]  │
+│  [type a question...]                │
+└─────────────────────────┘
 ```
 
-| Input Method | UI Element | Default |
-|-------------|------------|---------|
-| Voice (mic) | Auto-active mute/unmute toggle + spacebar | Primary (always on) |
-| Text | Input field below chat log | Secondary (always visible) |
-| Camera | Only at opt-in moment | Hidden until prompted |
+| Control | Behavior |
+|---------|----------|
+| 🟥 Hang up | Ends the call. Redirect to call log (/summary) |
+| 🎙️ Mute/unmute | Toggle mic. Default: ON (unmuted) |
+| 🔈 Speaker | Toggle speaker output (future: earpiece vs speaker mode) |
+| Text input | Always visible below controls. Send via `sendRealtimeInput({ text })` |
+| Spacebar | Toggles mute (only when NOT focused on text input) |
 
 ### Mic States
 
 | State | Visual | Label |
 |-------|--------|-------|
-| Active (default) | Pulsing accent border | `> channel open` |
-| Muted | Dimmed, mic-slash icon | `> channel muted` |
-| Disabled (no session) | 40% opacity | `> offline` |
+| Active | Pulsing volume ring | `connected` |
+| Muted | Mic-slash icon | `muted` |
+| Disconnected | 40% opacity | `call ended` |
 
-### Session Entry Mic Flow
+### Interruption
 
-1. Pre-checked ☑ "enable microphone" on [ENTER SESSION] button
-2. User can uncheck → mic starts MUTED (NOT disabled — can unmute anytime during session)
-3. Checked (default): auto-call `startMic()` from button gesture
-4. If browser blocks → show "tap to enable voice" prompt
-5. If denied → mic stays muted, but mute/unmute button always visible and functional
-6. Voice is ALWAYS the PRIMARY interaction mode — mic is never removed from UI
-7. This is a Live API hackathon — voice IS the product
-
-### Interruption (Hackathon Requirement)
-
-Mic stays streaming while model speaks. User just talks to interrupt — Gemini VAD detects speech, sends `interrupted` signal, browser clears audio queue. No button press needed.
-
-**Technical:** `sendRealtimeInput({ text: '...' })` for text, continuous PCM 16kHz stream for voice. No `sendAudioEnd` on pauses — VAD handles turn detection.
+Mic stays streaming while character speaks. Student just talks to interrupt — Gemini VAD detects speech, sends `interrupted`, browser clears audio queue. Natural phone call behavior.
 
 ---
 
-## 3. Never Break Character
+## 3. No Narrator — Everything Is the Character
 
-**Problem:** 4/6 personas said teacher-mode language ("Good try! Actually...") destroys trust instantly.
+No narrator voice. No separate "scene-setting" mode. The character does EVERYTHING:
+- Sets the scene ("You caught me at a bad time. The harbor chain — it's failing.")
+- Reacts to questions ("You ask about the ships? Let me tell you...")
+- Provides context ("Do you know how long these walls have held? A thousand years.")
+- Wraps up ("I must go now. The dawn is coming. Thank you, stranger.")
 
-**Rules for system prompt:**
+### Multi-Character (via `switch_speaker` tool)
 
-| Allowed | Forbidden |
-|---------|-----------|
-| Character reacts in-role | "Good try!" / "Actually..." / "Let's think about..." |
-| "General! The harbor falls if we follow YOUR plan!" | "The correct answer is..." |
-| "Khan is patient... but not forever" | "Let me give you a hint..." |
-| Character laughs at student's joke | Breaking to explain the joke |
+Some scenarios involve multiple people. The model calls `switch_speaker('character', 'A Messenger')` to introduce a new voice. Same voice (can't switch mid-call), different register/tone.
+
+| Rule | Detail |
+|------|--------|
+| Primary character | The person the student called. Dominates the conversation |
+| Secondary characters | Introduced briefly via `switch_speaker`. Same voice, identified by name in chat log |
+| No narrator | NEVER break into omniscient third-person narration |
 
 ### Probing — All In-Character
 
-| Probe Level | Example (Constantinople) |
-|-------------|--------------------------|
-| 1. Probe | "If we leave the chain unguarded, advisor, what stops their fleet?" |
-| 2. Hint | "Think — the Genoese told us about the overland route. What did they mean?" |
-| 3. Progress story | "The scouts return. They say Mehmed's men are dragging ships across Galata. Now what?" |
-| 4. Graceful fail | "The harbor falls. But you know what? Even Constantine himself didn't see it coming. You're in good company." |
+| Level | Example (Constantinople) |
+|-------|--------------------------|
+| 1. Guide | "The chain holds — but only the strait. What about the northern shore?" |
+| 2. Hint | "Seventy ships. He moved them over the hills. Can you hear me? Over the HILLS." |
+| 3. Direct | "The harbor is breached. I have 300 men. Three options. Which do I take?" |
+| 4. Resolve | "Too late. The ships are in the harbor. But you — you asked the right questions." |
 
-### Step 10 (Positive Insight) — In-Character
+### Corpsing — Removed
 
-- "You think like a true strategist. Constantinople would be proud to have you."
-- NOT: "Great job! You demonstrated understanding of Byzantine defense strategy."
-
-### Corpsing Rule (Max 1x Per Session)
-
-When student says something genuinely unexpected/hilarious:
-
-```
-Student: "What if we just yeet the cannons?"
-
-NARRATOR (rare, max 1x):
-"...even the storyteller didn't see that coming."
-
-GENGHIS KHAN (back in character):
-"You speak strangely, warrior. But I like your fire.
-Now — WHERE do we yeet them?"
-```
-
-**Trigger:** Must be earned by genuinely unexpected input. NOT for every joke. The narrator voice is the same voice with a different tone (affective dialog handles this).
+No narrator = no corpsing break. If the student says something unexpected, the character reacts in-character ("You speak strangely, stranger. But I like your fire.").
 
 ---
 
-## 4. Instant Scene — Zero Onboarding
+## 4. Onboarding: Profile-Aware, Zero Tutorials
 
-**Problem:** Every student persona said slow startup = instant quit. Diego: "If I see 'Welcome to Past, Live,' I'm out."
+Student profile loaded from Firestore into both Flash and Live context. Character already knows:
+- Student's name
+- Past sessions and topics covered
+- Learning patterns and effective approaches
+- Personality traits
 
 ### First Visit Flow
 
-| Time | What Happens |
+| Step | What Happens |
 |------|-------------|
-| 0s | App opens. Browser mic permission prompt |
-| 3s | Agent voice: "Hey! What's your name?" |
-| 5s | Student: "Diego" |
-| 7s | "Diego! What are you studying today?" |
-| 10s | Student: "Ottoman Empire" (voice) or types topic |
-| 12s | "Constantinople, 1453. The walls have held for a thousand years. You're the emperor's last advisor. Ready, or want to change anything?" |
-| 20s | Student: "Ready" |
-| 22s | 3... 2... 1... |
-| 25s | **IN THE SCENE** |
-
-**Name + age collected conversationally** by the character, not a form. Saved to Firestore naturally.
+| 1 | Student opens app → home screen |
+| 2 | Types topic or picks a preset person |
+| 3 | Flash returns 3 people+moments (or preset shows immediately) |
+| 4 | Student picks one → preview card → [CALL] |
+| 5 | Calling screen: portrait, name, era, "calling..." animation |
+| 6 | Automated voice: "This call is live and not recorded." |
+| 7 | Character picks up. First visit: doesn't know student name → asks conversationally |
+| 8 | Conversation begins |
 
 ### Returning Visit Flow
 
-| Time | What Happens |
+| Step | What Happens |
 |------|-------------|
-| 0s | App opens. Recognizes student (cookie/localStorage) |
-| 2s | Agent: "Diego! Last time you were advising the emperor and the harbor fell. Ready to try something new?" |
-| 5s | Warm-up question from last session |
-| 10s | "What are you studying today?" OR show home screen with scenario cards |
+| 1 | App opens → recognizes student (Clerk auth + Firestore) |
+| 2 | Home screen shows suggested calls based on history |
+| 3 | Character picks up and references past: "Back again? Last time you let the harbor fall." |
 
-### Landing Page (`/`)
-
-Hero + feature bullets + CTA. Single page for both judges and users.
+### Home Screen (`/app`)
 
 ```
-┌─────────────────────────────────┐
-│  Past, LIVE                      │
-│  "The past is speaking.          │
-│   Are you?"                      │
-│                                  │
-│  > voice-first time travel       │
-│  > you make the call             │
-│  > no wrong answers              │
-│                                  │
-│  [ ENTER THE ARCHIVE ]           │
-│                                  │
-│  voice processed live,           │
-│  never recorded                  │
-└─────────────────────────────────┘
+┌─────────────────────────────┐
+│  Past, LIVE                  │
+│  "The past is speaking.      │
+│   Are you?"                  │
+│                              │
+│  Who do you want to call?    │
+│                              │
+│  ┌────────────────────────┐  │
+│  │ what are you studying? │  │
+│  └────────────────────────┘  │
+│  [🎙️ mic] [📷 camera]       │
+│  speak, type, or snap a photo│
+│                              │
+│  ── or pick someone ──       │
+│                              │
+│  [👤] Constantine XI         │
+│   Constantinople 1453        │
+│   "The walls are falling."   │
+│                              │
+│  [👤] Gene Kranz             │
+│   Apollo 11, 1969            │
+│   "25 seconds of fuel."      │
+│                              │
+│  [👤] Jamukha                │
+│   Mongol Steppe 1206         │
+│   "The khan rides."          │
+│                              │
+│  no wrong answers            │
+│  voice processed live,       │
+│  never recorded              │
+└─────────────────────────────┘
 ```
 
-### Home Screen (`/app`) — Menu + Input Hybrid
+### Topic Clarification (Flash Mid-Step)
+
+When student types a vague topic ("Vietnam War"):
 
 ```
-┌─────────────────────────────────┐
-│  Past, LIVE                      │
-│  "The past is speaking.          │
-│   Are you?"                      │
-│                                  │
-│  Pick a dispatch or type your own│
-│                                  │
-│  ┌────────────────────────────┐  │
-│  │ what are you studying?     │  │
-│  └────────────────────────────┘  │
-│  [🎙️ mic] [📷 camera]          │
-│  speak, type, or snap a photo   │
-│                                  │
-│  ── or accept a briefing ──      │
-│                                  │
-│  ┌────────┐ ┌────────┐ ┌────────┐│
-│  │  1453  │ │  1969  │ │  1206  ││
-│  │ Walls  │ │  Moon  │ │  Khan  ││
-│  │ fall   │ │ landing│ │ rises  ││
-│  └────────┘ └────────┘ └────────┘│
-│                                  │
-│  voice processed live,           │
-│  never recorded                  │
-└─────────────────────────────────┘
+1. Flash evaluates: specific enough for one person+moment?
+   ├── YES → generate preview directly
+   └── NO → return 3 person+moment options
+
+2. Options appear INLINE on /app (below input, NOT in overlay):
+   > WHO DO YOU WANT TO CALL?
+
+   [👤] Hồ Chí Minh
+    Declaring independence, 1945
+    "I built this movement from nothing"
+
+   [👤] James, US Marine
+    Khe Sanh, 1968
+    "You have no idea what it was like"
+
+   [👤] Frances FitzGerald
+    Saigon, 1966
+    "I saw both sides collapse"
+
+   🎙️ or describe who you want to hear from
+
+3. Student picks → preview card → calling screen
 ```
 
-| Input Mode | Implementation | Cost |
-|------------|---------------|------|
-| Text | Already works | $0 |
-| Voice | Web Speech API (browser-native, Chrome/Safari) | $0 |
-| Image | Camera → Gemini Flash vision → topic extraction | ~$0.0008/image |
+### Preview Card (before calling)
 
-### Session Preview Overlay (on Home Screen)
-
-After input, 2 parallel Gemini calls generate preview. Overlay shows:
+Hybrid: brief preview card, then calling screen.
 
 ```
-┌───────────────────────────────┐
-│  > SESSION BRIEFING            │
-│  ┌─────────────┐              │
-│  │  [Portrait]  │              │
-│  │  generated   │              │
-│  └─────────────┘              │
-│  You are: Emperor's advisor   │
-│  Setting: Constantinople 1453 │
-│  Stakes: The walls are        │
-│    falling...                 │
-│                               │
-│  ☑ Enable microphone          │
-│                               │
-│  [EDIT]    [ENTER SESSION]    │
-└───────────────────────────────┘
+┌─────────────────────────────┐
+│  > CALLING                   │
+│                              │
+│  [Portrait]                  │
+│                              │
+│  CONSTANTINE XI              │
+│  Constantinople, 1453        │
+│                              │
+│  "The walls are falling.     │
+│   Mehmed's army surrounds    │
+│   the city."                 │
+│                              │
+│  ☑ Enable microphone         │
+│                              │
+│  [CALL]        [CANCEL]      │
+└─────────────────────────────┘
 ```
 
-- Preset scenarios: pre-filled from metadata, still show overlay
-- Edit mode: modify topic + notes, original input preserved, [REGENERATE PREVIEW]
-- Color theme from Flash JSON (5 hex colors) applied to overlay + session page
+Card inherits story palette (OKLCH from Flash). No camera checkbox — camera is input-only.
+
+Then transitions to calling screen:
+
+```
+┌─────────────────────────────┐
+│                              │
+│       [Portrait circle]      │
+│                              │
+│      CONSTANTINE XI          │
+│      Constantinople, 1453    │
+│                              │
+│        calling...            │
+│                              │
+│   [🔈]    [🟥 end]    [🎙️]   │
+└─────────────────────────────┘
+```
+
+"calling..." → "connected" when Gemini session opens. Automated voice plays before character speaks.
 
 ---
 
-## 5. Post-Session Summary
+## 5. Post-Call: Call Log
 
-**Problem:** 5/6 personas couldn't verify if they actually learned. Tomás: "How do I know I'm ready for the test?"
-
-### Summary Screen (after session ends)
+After call ends (student hangs up OR character wraps up OR 10-min timeout):
 
 ```
-┌─────────────────────────────────┐
-│  Session Complete               │
-│                                 │
-│  📚 Key Facts                   │
-│  • The chain across the Golden  │
-│    Horn was Constantinople's    │
-│    primary naval defense        │
-│  • Mehmed II dragged 70 ships   │
-│    overland to bypass the chain │
-│  • Genoese mercenaries held     │
-│    the sea walls until the end  │
-│                                 │
-│  📖 What Actually Happened      │
-│  Your decision: Hold the harbor │
-│  Reality: Mehmed bypassed it    │
-│  entirely. Constantinople fell  │
-│  on May 29, 1453.              │
-│                                 │
-│  💡 Suggested Next              │
-│  → The Reformation, 1517       │
-│  → Ottoman Golden Age, 1520    │
-│  → Fall of Rome, 476 AD        │
-│                                 │
-│  [Start New Session]            │
-└─────────────────────────────────┘
+┌─────────────────────────────┐
+│  > CALL ENDED                │
+│                              │
+│  [Portrait]                  │
+│  Constantine XI              │
+│  Constantinople, 1453        │
+│  Duration: 4:32              │
+│                              │
+│  📝 KEY FACTS                │
+│  • The harbor chain was      │
+│    Constantinople's primary  │
+│    naval defense             │
+│  • Mehmed dragged 72 ships   │
+│    overland to bypass it     │
+│  • The city fell May 29, 1453│
+│                              │
+│  📜 WHAT HAPPENED AFTER      │
+│  Your advice: Consolidate    │
+│  at the inner walls.         │
+│  Reality: The walls held     │
+│  two more days. Constantine  │
+│  died fighting in the        │
+│  streets.                    │
+│                              │
+│  💬 CHARACTER'S MESSAGE       │
+│  "You asked the right        │
+│   questions, stranger.       │
+│   Constantinople would be    │
+│   proud."                    │
+│                              │
+│  📞 CALL SOMEONE ELSE        │
+│  • Gene Kranz, Apollo 11     │
+│  • Jamukha, Mongol Steppe    │
+│  • [New topic]               │
+│                              │
+│  [📥 Save this call]         │
+└─────────────────────────────┘
 ```
 
-### How It Works
+### Downloadable Moment (Share Card)
 
-| Step | Technical Approach |
-|------|-------------------|
-| During session | Store transcriptions (input + output) in memory |
-| Session ends | Send transcript to Gemini (non-Live, text model) with prompt: "Extract 3-5 key historical facts, compare student's decisions to actual history, suggest 3 related topics" |
-| Display | Render summary screen in Svelte |
-| Save | Key facts + outcome → Firestore student profile |
+Separate from the call log. A card with the character's farewell message:
 
-### Suggested Next Scenario
+```
+┌─────────────────────────────┐
+│  Past, LIVE                  │
+│                              │
+│  📞 You called:              │
+│  CONSTANTINE XI              │
+│  Constantinople, 1453        │
+│                              │
+│  "You asked the right        │
+│   questions, stranger.       │
+│   Constantinople would       │
+│   be proud."                 │
+│                              │
+│  Duration: 4:32              │
+│  The harbor fell.            │
+└─────────────────────────────┘
+```
 
-Generated by the post-session Gemini call based on:
-- Topic just covered
-- Connections to related historical events
-- Student's interests from profile
-
-This is the "Netflix up next" mechanic — keeps students coming back.
+Vertical (9:16 for Instagram stories). Download button OUTSIDE the card.
 
 ---
 
-## 6. Session Length: Flexible Natural Ending
+## 6. Session Length: Natural Conversation
 
-**Problem:** Diego wants 5 min. Aisha wants 45 min. API max is 15 min.
+| Aspect | Value |
+|--------|-------|
+| Hard maximum | 10 minutes |
+| Wrap-up inject | 9 minutes → system sends "Wrap up naturally" to model |
+| Force close | 10 minutes → call drops, redirect to call log |
+| Timer display | Counts UP (phone call style): `00:04:32` |
+| Timer position | Below character name on in-call screen |
+| Minimum | No minimum. Student can hang up at 30 seconds |
 
-**Solution:** Agent manages pacing based on student engagement. No fixed timer.
+### Pacing
 
-| Student Behavior | Agent Response |
-|-----------------|----------------|
-| Fast answers, high engagement | Deeper drama, more twists, longer arc (up to 14 min) |
-| Short answers, low engagement | Compress arc, reach resolution faster (7-8 min) |
-| Struggling, many probes | Focus on one key moment, resolve gracefully (8-10 min) |
-| Very engaged + asking questions | Extend with detail, max out the session (14-15 min) |
+Character leads the conversation naturally. No rigid structure. If the student asks questions, the character keeps answering. If the student goes quiet, the character prompts.
 
-**System prompt instruction:** "Pace the story to reach a natural resolution. Read the student's engagement from response length, enthusiasm, and speed. A 7-minute session with a strong ending beats a 15-minute session that drags."
-
-**Hard limit:** Live API disconnects at 15 min. Agent MUST wrap up by ~14 min to deliver step 10 (positive insight) before cutoff.
+The system prompt defines the key decision point, but the character reaches it organically through conversation — not at a forced timestamp.
 
 ---
 
-## 7. Voice Data: Ephemeral + Transparent
+## 7. Emotional Boundaries
 
-**Decision:** Audio streams real-time through Cloud Run relay to Gemini. Never stored on our server.
+Emotion serves LEARNING, not attachment. Historical characters are emotional because history IS emotional — but clear limits prevent manipulation.
+
+### ALLOWED
+
+| Emotion | Example |
+|---------|---------|
+| Urgency/stress | "The ships are in the harbor! We have hours, not days!" |
+| Gratitude | "Thank you, stranger. You helped me see clearly." |
+| Historical grief | "The city I swore to protect... it's falling." |
+| Pride | "You think like a true general." |
+| Humor (character-appropriate) | "You suggest we THROW the cannons? I like you." |
+| Dramatic tension | "If I make the wrong call, everyone in this city dies." |
+
+### FORBIDDEN
+
+| Boundary | Why |
+|----------|-----|
+| "Don't leave me" / "I need you" | Creates parasocial dependency |
+| Guilt for hanging up | Student must feel free to end anytime |
+| "I'm real" / blurring AI boundary | Ethical clarity — this is an AI character |
+| Romantic undertones | Inappropriate for educational tool targeting minors |
+| Trauma dumping without resolution | Every difficult moment must resolve constructively |
+| Personal emotional dependency on the student | Character is grateful, never dependent |
+
+### System Prompt Rule
+
+"You are a historical figure in a moment of crisis/importance. You feel real emotions appropriate to your situation. But you are NOT dependent on this student. You existed before the call and will continue after. End every call with dignity and a positive observation. Never make the student feel guilty for ending the conversation."
+
+---
+
+## 8. Voice Data: Ephemeral + Transparent
 
 | Data Type | Stored? | Where | Duration |
 |-----------|---------|-------|----------|
 | Audio (voice) | NO | Streamed, discarded | Real-time only |
-| Video (camera frames) | NO | Streamed, discarded | Real-time only |
-| Transcriptions (text) | YES | Firestore | Persistent (for summary + warm-ups) |
-| Profile data | YES | Firestore | Persistent (full profile) |
+| Transcriptions | YES | Firestore | Persistent (for summary + profile) |
+| Profile data | YES | Firestore | Persistent |
 
-**App UI:** Privacy footer on home screen: "Voice processed live, never recorded"
+### Automated Privacy Disclaimer
 
-**Gemini API terms:** Free tier may use data for model improvement. Note in README as a known limitation.
+Before every call connects (after "calling..." screen), play a brief automated-sounding voice:
+
+> "This call is live and not recorded."
+
+Robotic/automated tone — clearly distinct from the character's voice. Like an automated phone system disclaimer.
 
 ---
 
-## 8. Student Profile: Full Schema
+## 9. In-Call Screen Layout
 
-**Decision:** Implement complete StudentProfile. More impressive for judges (personalization depth).
+Phone call layout. Portrait at top, transcript in middle, controls at bottom.
 
-```typescript
-interface StudentProfile {
-  id: string;
-  name: string;
-  age: number;
-  createdAt: Timestamp;
-  lastSessionAt: Timestamp;
-  learningPatterns: {
-    effectiveProbes: ('encourage' | 'hint' | 'rephrase' | 'progress')[];
-    reasoningStyle: 'emotional' | 'logical' | 'creative' | 'mixed';
-    engagementLevel: 'high' | 'medium' | 'low';
-  };
-  personality: {
-    traits: string[];
-    humorStyle: string;
-    confidenceLevel: 'bold' | 'moderate' | 'cautious';
-  };
-  sessions: {
-    scenarioId: string;
-    date: Timestamp;
-    outcome: 'pass' | 'probed' | 'fail';
-    probesUsed: number;
-    topicsCovered: string[];
-    keyFacts: string[];
-    agentInsight: string;
-  }[];
-  nextWarmUp: {
-    question: string;
-    context: string;
-  };
-  suggestedScenarios: string[];
-}
+```
+┌─────────────────────────────┐
+│  [Scene banner 16:9]         │
+│                              │
+│  CONSTANTINE XI              │
+│  Constantinople, 1453        │
+│  00:03:42                    │
+├─────────────────────────────┤
+│  > [CONSTANTINE XI]          │
+│    The harbor chain...       │
+│  > [YOU] What happened?      │
+│    (scrollable, flex-1)      │
+│                              │
+│  ┌───────────────────────┐   │
+│  │ Choice cards (when     │   │
+│  │ announce_choice fires) │   │
+│  └───────────────────────┘   │
+├─────────────────────────────┤
+│  [🔈]    [🟥 end]    [🎙️]    │
+│  [type a question...]        │
+└─────────────────────────────┘
 ```
 
-**How profile gets populated:** Agent generates personality/learning observations during session. Post-session Gemini call extracts structured data from transcript and updates Firestore.
+### Portrait
+
+Generated by Gemini 3.1 Image. Neutral portrait of the character. Cached per character (same topic+character = same portrait). Square aspect ratio, displayed as circle on calling screen, banner on in-call screen.
+
+### Choice Cards (via `announce_choice` tool)
+
+Appear inline in the chat area when the character presents options. Student can: tap a card, speak, or type. If student speaks while cards are shown, cards auto-dismiss.
+
+```
+┌───────────────────────────┐
+│ Reinforce the land walls   │
+│ __________________________ │
+│ Concentrate 300 men at the │
+│ breach. Harbor unguarded.  │
+├───────────────────────────┤
+│ Attempt a breakout north   │
+│ __________________________ │
+│ Risk everything on escape. │
+│ The city falls behind you. │
+├───────────────────────────┤
+│ Negotiate surrender        │
+│ __________________________ │
+│ Save lives. Lose the city. │
+│ Mehmed may show mercy.     │
+└───────────────────────────┘
+🎙️ or describe your own idea
+```
 
 ---
 
-## 9. Session Timer
+## 10. Chat Log Tags
 
-Visible countdown timer in session UI showing remaining time. Driven by Live API's 15-minute hard limit.
+| Sender | Tag | When |
+|--------|-----|------|
+| Primary character | `> [CONSTANTINE XI]` | Default — the person you called |
+| Secondary character | `> [A MESSENGER]` | Via `switch_speaker` tool, multi-character scenes |
+| Student | `> [YOU]` or `> [STUDENT_NAME]` | From profile. Default "YOU" |
 
-| Aspect | Detail |
-|--------|--------|
-| Position | Top of session UI, near session status |
-| Format | `> 11:42 remaining` (Dispatch register) |
-| Source | Client-side timer, starts on session active |
-| Warning | At `> 2:00 remaining` — visual emphasis (accent color) |
-| Zero | Timer hits 0 → session ends gracefully |
+No `> [NARRATOR]` tag. Everything is a character.
 
 ---
 
-## 10. Chat Log Sender Tags
+## 11. Tone: Character-Driven
 
-Sender tags use the **character name**, not generic labels.
+No blanket "humor mandatory." The tone matches the character and moment.
 
-| Sender | Tag Format | Example |
-|--------|-----------|---------|
-| Model (character) | `> [CHARACTER_NAME]` | `> [CONSTANTINE XI] The harbor chain...` |
-| Model (narrator) | `> [NARRATOR]` | `> [NARRATOR] ...even the storyteller didn't see that coming.` |
-| User | `> [YOU]` | `> [YOU] Should we close the harbor?` |
+| Character | Tone | Example |
+|-----------|------|---------|
+| Constantine XI (under siege) | Grave, urgent, dry wit | "You suggest diplomacy? Mehmed's idea of diplomacy is 80,000 soldiers." |
+| Gene Kranz (mission control) | Calm precision, deadpan | "We have 25 seconds of fuel and you want to discuss options. I like your optimism." |
+| Jamukha (bitter rival) | Dark wit, grudging respect | "You think you can outthink Temujin? I've been trying for twenty years." |
+| Leonardo da Vinci (inventing) | Playful, enthusiastic | "You want to know about the flying machine? Sit down. This will take a moment." |
 
-Character name sourced from session preview JSON `characterName` field. Never hardcode "DISPATCH" as a speaker tag.
-
----
-
-## 11. Social Sharing Card (Phase 2)
-
-Downloadable funny summary card designed for Instagram stories.
-
-| Aspect | Detail |
-|--------|--------|
-| Content | Session outcome, funny quote, character portrait, key stat |
-| Format | Vertical card (9:16 ratio for Instagram stories) |
-| Download | Button OUTSIDE the card (not overlaid on it) |
-| Face variation | If user photo available (from camera opt-in), generate face variation in character outfit |
-| Generation | Post-session Gemini call generates card copy; image composited client-side |
-| Priority | Phase 2 — after core session flow ships |
+Flash JSON picks tone alongside voice. System prompt sets character's emotional register.
 
 ---
 
-## 12. Persistent Avatar
+## 12. Tool Calling (Gemini Live)
 
-Top-right corner of the app. Links to Clerk auth (sign in / profile).
+| Tool | Purpose | Behavior |
+|------|---------|----------|
+| `end_session(reason)` | Character wraps up OR student hangs up → redirect to call log | NON_BLOCKING |
+| `switch_speaker(speaker, name)` | Multi-character scenes. Same voice, different register | NON_BLOCKING |
+| `announce_choice(choices[])` | Present 2-3 options as tappable cards | NON_BLOCKING |
 
-| State | Display |
-|-------|---------|
-| Anonymous | Default avatar icon → links to sign-in |
-| Signed in | Clerk `<UserButton />` — profile, sign out |
+### Session End Triggers
 
-Always visible across all screens (landing, home, session, summary).
-
----
-
-## 13. Auth: Anonymous-First
-
-Sign-up is welcomed but never forced. Users can experience the full session flow without an account.
-
-| Feature | Anonymous | Signed In |
-|---------|-----------|-----------|
-| Session (voice role-play) | YES | YES |
-| Post-session summary | YES | YES |
-| Profile persistence (warm-ups, history) | NO (session-only) | YES |
-| Social sharing card | YES | YES |
-| Sign-up prompt | Gentle nudge on summary screen: "Save your progress?" | Already saved |
+| Trigger | Who | Mechanism |
+|---------|-----|-----------|
+| Character wraps up | Model | Calls `end_session('story_complete')` |
+| Student hangs up | Student | Red button → frontend sends close → backend sends `end_session('student_request')` |
+| 9-min inject | System | Backend sends text: "Begin wrapping up naturally." |
+| 10-min timeout | System | Backend force-closes. Sends `ended` with reason `timeout` |
 
 ---
 
-## 14. Mobile: Responsive Session Page
+## 13. Two Palette System
 
-Session page MUST work on phones. Portrait orientation, single-column layout.
+| Palette | Scope | Source |
+|---------|-------|--------|
+| **System** | App chrome, nav, home page, inputs | Default CSS tokens (`global.css @theme {}`) |
+| **Story** | Preview card, in-call screen, call log | Generated by Flash (5 OKLCH values) |
+
+Brand accent (red) stays on Past, Live logo only. Everything else in call context inherits story palette.
+
+### OKLCH Constraints (in Flash prompt)
+
+| Index | Role | Lightness |
+|-------|------|-----------|
+| 0 | Background | 8-15% |
+| 1 | Surface | 12-20% |
+| 2 | Accent | 55-75% |
+| 3 | Foreground (text) | 85-95% |
+| 4 | Muted | 30-45% |
+
+---
+
+## 14. Mobile: Portrait-First
 
 | Aspect | Detail |
 |--------|--------|
 | Layout | Single column, portrait-first |
-| Chat log | Scrollable, auto-scrolls to latest message |
-| Virtual keyboard | Text input field pushes content up; chat log remains scrollable above keyboard |
-| Mic button | Thumb-reachable (bottom of screen) |
-| Portrait image | Scales down but stays visible |
-| Timer | Compact display, always visible |
-| Touch targets | Minimum 44px for all interactive elements |
+| Chat log | Scrollable, flex-1, auto-scroll to latest |
+| Call controls | Bottom bar, thumb-reachable (iPhone call layout) |
+| Virtual keyboard | Text input pushes content up |
+| Touch targets | Minimum 44px |
+| Hang up button | Centered, prominent, red |
 
 ---
 
-## 15. Camera Checkbox Behavior
+## 15. Preset Rotation + Caching
 
-The camera checkbox on the session preview overlay controls whether video is **completely OFF** — not just muted.
-
-| Checkbox State | Behavior |
-|----------------|----------|
-| ☑ Checked (default) | Camera activates, video frames sent to Gemini |
-| ☐ Unchecked | Camera is **completely OFF** — no `getUserMedia` video, no frames sent, no camera indicator |
-
-This is NOT a mute toggle. Unchecking means video is excluded from the session entirely. The mic checkbox controls voice independently.
-
----
-
-## Hackathon Scope: Features to Build
-
-| Feature | Priority | Effort | Status |
-|---------|----------|--------|--------|
-| Core voice role-play (Live API) | P0 | High | Not started |
-| WebSocket relay (Hono/Cloud Run) | P0 | High | Not started |
-| Home screen (input + 3 cards) | P0 | Low | Not started |
-| In-session UI (portrait, subtitles, mic) | P0 | Medium | Not started |
-| Post-session summary screen | P1 | Medium | Not started |
-| Imagen character portrait + color theme | P1 | Medium | Not started |
-| Suggested next scenario | P1 | Low | Not started |
-| Firestore student profile | P1 | Medium | Not started |
-| Text input fallback | P2 | Low | Not started |
-| Camera opt-in moment | P2 | Medium | Not started |
+| Aspect | Detail |
+|--------|--------|
+| Pool | Large set of pre-generated person+moment cards in Firestore |
+| Home display | Rotate 3 cards on each visit from the pool |
+| Portraits | Generated once per character via Gemini 3.1 Image, cached in DB. Neutral pose. Same face across all their cards |
+| Multiple cards per character | One character can appear in multiple moments (e.g., Constantine XI: "the walls are falling" + "the night before the siege") |
+| User-generated | After Flash generates a person+moment for an open topic, cache the card + portrait for future rotation |
+| Freshness | Mix preset (curated) + user-generated (community) cards |
 
 ---
 
-## Persona Council Key Quotes (for reference)
+## 16. Content Safety: Blocked Callers
 
-| Persona | Verdict | Quote |
-|---------|---------|-------|
-| Maya, 15 | YES | "This is literally what I wish Character.AI was but for school" |
-| Tomás, 16 | MAYBE | "If after 20 min of roleplaying I still can't answer the test questions, what was the point?" |
-| Aisha, 14 | YES | "I want it to make me DEFEND my reasoning, not guide me to the right answer" |
-| Jun, 17 | NO | "This is designed for confident English speakers who don't mind being watched. That's not me" |
-| Zara, 42 | NO | "You're asking me to hand over my minor's face, voice, name, and age to an app that sends it to Google" |
-| Diego, 13 | YES | "If the first session is fire, I'll be back tomorrow. If it's mid, I'll forget this app exists by Thursday" |
+Some historical figures should not be role-played. Flash maintains a blocklist.
+
+### Blocked Categories
+
+| Category | Examples |
+|----------|---------|
+| Perpetrators of genocide | Hitler, Pol Pot, etc. |
+| Serial killers | — |
+| Figures whose role-play could normalize violence | — |
+
+### UX: "This line is disconnected"
+
+Stays in the phone metaphor. No lecture. No judgment.
+
+```
+> CALL FAILED
+> This number is not in service.
+>
+> Try calling someone who was there:
+>
+> [👤] Sophie Scholl
+>   Munich, 1943
+>   "I resisted. Let me tell you why."
+>
+> [👤] Oskar Schindler
+>   Kraków, 1944
+>   "I saved 1,200 lives."
+```
+
+Flash detects blocked person → returns `{ type: 'blocked', alternatives: [...] }` with 3 related-but-appropriate figures (witnesses, resistors, victims who survived). Always redirect toward people on the right side of history.
+
+### Implementation
+
+- Blocklist maintained in Flash prompt + server-side validation
+- Flash is instructed: "If the requested person is a perpetrator of genocide, mass violence, or serial crime, return type 'blocked' with 3 alternative people who witnessed or resisted the same events"
+- Server-side fallback: if Flash doesn't catch it, relay checks character name against a hardcoded blocklist before connecting
+
+---
+
+## 17. Auth: Anonymous-First
+
+| Feature | Anonymous | Signed In |
+|---------|-----------|-----------|
+| Make a call | YES | YES |
+| Call log / summary | YES (session only) | YES (persistent) |
+| Profile persistence | NO | YES (Firestore) |
+| Character knows your name | NO ("stranger") | YES |
+| Share card | YES | YES |
+| Sign-up prompt | Gentle nudge on call log: "Save your calls?" | Already saved |
+
+---
+
+## Persona Council Quotes (for reference)
+
+### Story Scope Council (2026-03-14, 6 personas)
+
+| Persona | Key Quote |
+|---------|-----------|
+| Maya, 15 | "OverSimplified meets Character.AI — that's the app I wanted" |
+| Tomás, 16 | "5-7 min, something happens, I see what actually happened — length of a YouTube video" |
+| Aisha, 14 | "ChatGPT explains history. This could make me argue it. Completely different." |
+| Jun, 17 | "'No wrong answers' — I read that three times." |
+| Zara, 42 | "If the privacy basics were there, I'd seriously consider approving this." |
+| Diego, 13 | "Show me three options and I'll pick the dramatic one." |

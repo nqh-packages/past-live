@@ -1,6 +1,6 @@
 # Past, Live
 
-History role-play tutor via Gemini Live API. Real-time voice conversation with historical characters. Camera opt-in only (demo for judges, skippable for users). Text input available alongside voice.
+Call the past. Students call historical figures to learn through conversation via Gemini Live API. Real-time voice. The student is the caller — they dial into the past, the character answers.
 
 **Hackathon**: Gemini Live Agent Challenge | **Deadline**: March 16, 2026 @ 8:00pm EDT
 **Category**: Live Agents (real-time voice + vision)
@@ -9,59 +9,46 @@ History role-play tutor via Gemini Live API. Real-time voice conversation with h
 
 ## Decisions Log
 
-All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-ask.
+All decisions made by Huy during concept/research phase (2026-03-13, 2026-03-14). Do NOT re-ask.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Category | Live Agents | Real-time voice + vision = strongest wow |
-| Concept | Historical role-play + expression reading | "Time Machine" — surroundings become the setting |
+| Category | Live Agents | Real-time voice = strongest wow |
+| Concept | Call the past — students phone historical figures | "Past, Live" = the line is open |
 | Non 'Live' Model | `gemini-3-flash-preview` (code/JSON output) | Huy's explicit choice |
-| Image Gen Model | `gemini-3.1-flash-image-preview` | Imagen replacement — character portraits + color themes |
+| Image Gen Model | `gemini-3.1-flash-image-preview` | Character portraits + color themes |
 | Live API Model | `gemini-2.5-flash-native-audio-preview-12-2025` | Native audio, affective dialog, VAD |
-| Voice | Single voice (`Charon`) + affective dialog | Can't switch mid-session; tone modulation via prompt + affective |
-| Camera in role-play | Demo-only: opt-in for judges, skippable for users | 6/6 personas rejected forced camera. Affective dialog replaces expression reading |
-| Camera at input | Default ON — "show me what you're studying" | Voice + vision is the product |
-| Text input | Hybrid: agent speaks, student can speak OR type | 4/6 personas voice-blocked. Text field always visible below subtitles |
-| Scoring | None — pure story | Gamification IS the narrative |
-| Profile storage | Firestore (full schema) | Satisfies GCP requirement + personalization depth |
-| Session structure | Flexible natural ending (7-14 min, max 15) | Agent paces to engagement. Diego needs 7 min, Aisha gets 14 |
-| Character breaking | NEVER break character. All probing in-role | 4/6 personas: teacher-mode = trust destroyed |
-| Corpsing | Rare narrator break, max 1x/session, must be earned | **laugh**, silence, then back in narrator voice: "Even the storyteller didn't see that coming" |
-| Onboarding | Instant scene — under 30 sec to action | Zero tutorials. Name collected conversationally by character |
-| Post-session | Key facts + "what actually happened" + suggested next | 5/6 couldn't verify learning without summary |
-| Scenario selection | Menu + input hybrid: 3 cards + open input | Judges see polished cards; students can explore any topic |
+| Voice | Flash picks per character from 30 voices | Each character gets a fitting voice. Locked at connect time |
+| Camera | Input only (textbook scan). NO camera during calls | Persona council: 3/6 blocked on camera during sessions |
+| Camera checkbox | REMOVED from preview card | No camera during calls = no checkbox needed |
+| Text input | Hybrid: character speaks, student can speak OR type | 4/6 personas voice-blocked. Text always visible |
+| Scoring | None — natural conversation | No gamification |
+| Profile storage | Firestore (full schema) | Satisfies GCP requirement + personalization |
+| Session structure | Natural conversation. 10 min hard max. 9 min wrap-up inject | Character leads, no rigid steps |
+| Character breaking | No narrator. Everything is the character | No corpsing. No narrator voice. Multi-character via `switch_speaker` |
+| Onboarding | Profile from Firestore. Character knows who's calling. Zero tutorials | First visit: character asks name conversationally |
+| Post-call | Call log: who, duration, key facts, what happened after, character's message | Not "session complete" — it's a call receipt |
+| Scenario selection | Person+moment cards on home screen. "Who do you want to call?" | Not event-focused dispatch cards |
+| Topic clarification | Flash returns 3 people+moments for vague topics | Inline on /app, NOT in overlay |
+| Tool calling | `end_session`, `switch_speaker`, `announce_choice`. All NON_BLOCKING | Model controls session flow |
+| Explicit choices | Via `announce_choice` tool — tappable cards | Not just prompt instruction |
+| Preview flow | Preview card → calling screen → connected (hybrid) | Brief card, then iPhone-style calling animation |
+| Privacy voice | Automated "This call is live and not recorded" before character speaks | Robotic tone, clearly not the character |
+| Share card | Call receipt with character's farewell message. Downloadable moment | 9:16 for Instagram stories |
+| Timer | Counts UP (phone call style), not countdown | `00:04:32` — natural phone behavior |
+| Tone | Character-driven. No blanket "humor mandatory" | Emperor under siege = intense. Inventor = playful |
+| Emotional boundaries | Emotion serves learning, not attachment. NEVER extremes | See Emotional Boundaries section |
+| Content safety | Blocked callers get "This line is disconnected" | Redirect to witnesses/resistors |
+| Preset rotation | Large pool in Firestore, rotate 3 per visit. Cache portraits | User-generated cards join the pool |
 | Frontend | Astro app in monorepo (`apps/past-live/`) | Standard pattern |
 | Backend | Hono on Cloud Run | TS, lightweight, WebSocket support |
-| Art | Gemini → color theme, `gemini-3.1-flash-image-preview` → scene image + character avatar | Full-stack Google |
+| Art | Flash → color theme, Gemini 3.1 → character portrait | Full-stack Google |
 | Demo scenarios | Constantinople 1453, Moon Landing 1969, Mongol Empire 1206 | 3 diverse regions/eras |
-| Warm-up | Agent-generated from previous session; first visit: name + age | Cannot skip — continuous data collection |
-| App name | **Past, Live** (slug: `past-live`) | Comma = pause. Reads as command: "Past, live." |
-| Naming style | "Past" (muted/serif) + "Live" (bright/bold) | Visual contrast |
-
-### Feedback Decisions (2026-03-13 — David + Huy testing session)
-
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Mic mode | Auto-activate on session entry, mute/unmute toggle | Hackathon: "talk naturally, can be interrupted" — hold-to-talk is unintuitive on web |
-| Mic permission | Auto-activate from [ENTER SESSION] gesture; re-prompt if blocked; text-only fallback | Browser requires user gesture for getUserMedia |
-| Mic checkbox | "auto-activate mic" — pre-checked ☑; controls whether mic starts ON. Uncheck = mic starts muted (NOT disabled — user can unmute anytime) | Voice is PRIMARY; checkbox controls initial state only |
-| Camera checkbox | Pre-checked ☑; controls whether video is IN or NOT IN the session. Unchecked = video completely off (not just muted) | Camera is opt-in for the session |
-| Speaking indicator | Audio waveform animation (CSS bars) | David: no visual feedback when model speaks |
-| Chat log | Character-named: `> [CHARACTER_NAME]` or `> [NARRATOR]` / `> [YOU]` prefixes. NOT hardcoded "DISPATCH" | Huy: transcriptions pile up as one paragraph |
-| Countdown | Dispatch-themed client-side overlay: STANDBY → CHANNEL OPEN → INCOMING TRANSMISSION | Huy: missing countdown that prepares mental model |
-| Model speaks first | Model narrates scene setting after countdown; mic already live | Huy: default screen showed "listening" with no guidance |
-| System prompt tone | Accessible period-flavored. A/B testing killed — ship variant B only | Huy: language too academic for target audience |
-| Explicit choices | System prompt MUST instruct model to present 2-3 concrete choices at every decision point. Global rule + per-scenario examples | Huy: "I don't get what I need to do" — open questions leave user stranded |
-| Tool calling | Gemini Live function declarations: `end_session`, `switch_speaker`, `announce_choice`. Model controls session flow | Research confirmed: Live API supports tools. Solves session ending + narrator/character tagging + choice UI |
-| Voice selection | Flash JSON picks `voiceName` from 30 available voices per character/era. Relay passes to `connect()` | Each era deserves its own voice. Voice locked at connect time |
-| Session preview | Overlay on home screen. Flash JSON first → then scene image + avatar in parallel (sequential, not 3-way parallel) | Avatar prompt needs `characterName` from Flash result |
-| Preview edit | User can modify topic + add notes; original input preserved; Flash regenerates | Example: student scans Vietnam 1975, model assumes tank gate, student wants lead-up events |
-| Preset scenarios | Always show preview overlay (pre-filled from scenario metadata) | Consistent flow |
-| Landing page | Hero + 3 feature bullets + CTA (single page for judges + users) | Research: don't separate audiences |
-| Home input | Multimodal: text + Web Speech API (voice) + Gemini Flash (image) | Non-negotiable: all 3 input modes |
-| Hero copy | "The past is speaking. Are you?" | Align title, og:title, and hero text |
+| App name | **Past, Live** (slug: `past-live`) | Comma = pause. "Past, live." |
+| Landing page | Hero + 3 feature bullets + CTA | Single page for judges + users |
+| Home input | Multimodal: text + Web Speech API (voice) + Gemini Flash (image) | All 3 input modes |
+| Hero copy | "The past is speaking. Are you?" | Align title, og:title, hero |
 | Sentry | Disabled (guard DSN check) | Placeholder `__SENTRY_DSN__` throws errors |
-| Home mic button | Wire it (Web Speech API + camera) | Dead button = critical UX bug |
 
 ---
 
@@ -75,9 +62,8 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 | AI Image | `gemini-3.1-flash-image-preview` | Character portraits + color themes |
 | Profile DB | Firestore | Student profiles, session history |
 | Frontend Host | Cloudflare Workers | Standard monorepo deploy |
-| Domain | `pastlive.site` (primary, **NOT YET REGISTERED**) + `past-live.ngoquochuy.com` (subdomain) | Porkbun account needs phone/email verification first |
-| Registrar | Porkbun → Cloudflare NS | DNS via Cloudflare once registered |
-| Monitoring | Sentry | Error tracking |
+| Domain | `pastlive.site` (primary, **NOT YET REGISTERED**) + `past-live.ngoquochuy.com` (subdomain) | Porkbun account needs phone/email verification |
+| Monitoring | Sentry | Error tracking (currently disabled) |
 
 ---
 
@@ -99,166 +85,86 @@ const ai = new GoogleGenAI({
 
 ### Connecting
 
+Key config values (see `gemini.ts` for full implementation):
+
 ```typescript
 const session = await ai.live.connect({
   model: 'gemini-2.5-flash-native-audio-preview-12-2025',
   config: {
-    responseModalities: ['audio'], // TEXT or AUDIO per session, never both
-    systemInstruction: { parts: [{ text: 'You are a history tutor.' }] },
-    speechConfig: {
-      voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Charon' } } // Informative
-    },
+    responseModalities: ['audio'],
+    speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } },
     enableAffectiveDialog: true,
-    inputAudioTranscription: {},
-    outputAudioTranscription: {},
-    mediaResolution: 'MEDIA_RESOLUTION_LOW', // only matters when video frames are sent
+    inputAudioTranscription: {}, outputAudioTranscription: {},
     automaticActivityDetection: {
       startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
-      endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
-      prefixPaddingMs: 20,
-      silenceDurationMs: 100,
+      endOfSpeechSensitivity: 'END_SENSITIVITY_HIGH',
+      prefixPaddingMs: 20, silenceDurationMs: 500,
     },
-    contextWindowCompression: { slidingWindow: {} }, // Longer sessions
+    contextWindowCompression: { slidingWindow: {} },
+    tools, // function declarations
   },
-  callbacks: {
-    onmessage: (response) => {
-      const content = response.serverContent;
-      if (content?.modelTurn?.parts) {
-        for (const part of content.modelTurn.parts)
-          if (part.inlineData) { /* PCM 24kHz audio base64 */ }
-      }
-      if (content?.inputTranscription) { /* student said */ }
-      if (content?.outputTranscription) { /* agent said */ }
-      if (content?.interrupted) { /* stop playback, clear queue */ }
-    },
-    onerror: (error) => {},
-    onclose: () => {},
-  }
 });
 ```
 
-### Tool Calling (Function Declarations)
+### Tool Calling
 
-Gemini Live supports function calling during live audio sessions. Model emits `toolCall` messages; relay responds with `sendToolResponse()`.
+3 tools, all `NON_BLOCKING`. Full declarations in `~/.claude/plans/tool-calling-implementation.md`.
 
-```typescript
-import { Behavior, FunctionResponseScheduling } from '@google/genai';
-
-const tools = [{
-  functionDeclarations: [
-    { name: 'end_session', description: 'Story concluded. Triggers redirect to /summary.', parameters: { type: 'object', properties: { reason: { type: 'string', description: 'Why the session ended (story_complete, timeout, user_request)' } }, required: ['reason'] } },
-    { name: 'switch_speaker', description: 'Switch chat log tag between narrator and character.', parameters: { type: 'object', properties: { speaker: { type: 'string', enum: ['narrator', 'character'], description: 'Who is speaking now' } }, required: ['speaker'] } },
-    { name: 'announce_choice', description: 'Present 2-3 choices for the student to pick.', parameters: { type: 'object', properties: { choices: { type: 'array', items: { type: 'string' }, description: 'The concrete options for the student' } }, required: ['choices'] } },
-  ]
-}];
-
-// In session config:
-config: { tools, ... }
-
-// In onmessage callback:
-if (msg.toolCall) {
-  const responses = msg.toolCall.functionCalls.map(fc => {
-    if (fc.name === 'end_session') { /* send 'ended' to browser, close Gemini */ }
-    if (fc.name === 'switch_speaker') { /* forward to browser, update $characterName or NARRATOR */ }
-    if (fc.name === 'announce_choice') { /* forward choices to browser, show choice cards */ }
-    return { id: fc.id, name: fc.name, response: { result: 'ok' } };
-  });
-  session.sendToolResponse({ functionResponses: responses });
-}
-```
-
-| Tool | Purpose | Relay action |
-|------|---------|-------------|
-| `end_session` | Model decides story is done | Relay sends `{ type: 'ended' }` → browser redirects to `/summary` |
-| `switch_speaker` | Narrator ↔ character tag in chat log | Relay sends `{ type: 'speaker_switch', speaker }` → frontend updates `$characterName` |
-| `announce_choice` | Present concrete choices to student | Relay sends `{ type: 'choices', choices }` → frontend shows choice cards |
-
-**Behavior**: `NON_BLOCKING` — model keeps speaking while tool runs.
-**Scheduling**: `WHEN_IDLE` — Gemini acts on tool response after current speech finishes.
+| Tool | Purpose | Relay → Browser |
+|------|---------|-----------------|
+| `end_session(reason)` | Character wraps up OR student hangs up | `{ type: 'ended' }` → redirect to `/summary` |
+| `switch_speaker('character', name)` | Multi-character only. No narrator | `{ type: 'speaker_switch', name }` → update chat tag |
+| `announce_choice(choices[])` | 2-3 tappable option cards | `{ type: 'choices', choices }` → show cards inline |
 
 ### Voice Auto-Selection
 
-Flash JSON now returns `voiceName` alongside other metadata. Relay uses it at `ai.live.connect()`.
+Flash JSON returns `voiceName` from 30 available voices. Relay passes to `ai.live.connect()`. Full voice catalog with "best for" guidance in `~/.claude/plans/tool-calling-implementation.md`.
 
-| Voice | Tone | | Voice | Tone | | Voice | Tone |
-|-------|------|-|-------|------|-|-------|------|
-| Zephyr | Bright | | Kore | Firm | | Charon | Informative |
-| Fenrir | Excitable | | Leda | Youthful | | Orus | Firm |
-| Aoede | Breezy | | Callirrhoe | Easy-going | | Autonoe | Bright |
-| Enceladus | Breathy | | Iapetus | Clear | | Umbriel | Easy-going |
-| Algieba | Smooth | | Despina | Smooth | | Erinome | Clear |
-| Algenib | Gravelly | | Rasalgethi | Informative | | Laomedeia | Upbeat |
-| Achernar | Soft | | Alnilam | Firm | | Schedar | Even |
-| Gacrux | Mature | | Pulcherrima | Forward | | Achird | Friendly |
-| Zubenelgenubi | Casual | | Vindemiatrix | Gentle | | Sadachbia | Lively |
-| Sadaltager | Knowledgeable | | Sulafat | Warm | | Puck | Upbeat |
+**Voice locked at connect time** — cannot switch mid-session.
 
-**Voice is locked at connect time** — cannot switch mid-session. Flash picks the best voice for the character/era.
+### Preset Voice Mapping
 
-### Sending Input
+| Scenario | Voice | Why |
+|----------|-------|-----|
+| Constantinople (Constantine XI) | Gacrux (F, Mature) | Gravitas + dry wit of a doomed emperor |
+| Moon Landing (Gene Kranz) | Charon (M, Informative) | Calm precision under pressure |
+| Mongol Empire (Jamukha) | Algenib (M, Gravelly) | Weathered rival, dark wit |
 
-```typescript
-session.sendRealtimeInput({ audio: { data: base64, mimeType: 'audio/pcm;rate=16000' } });
-session.sendRealtimeInput({ video: { data: base64, mimeType: 'image/jpeg' } });
-session.sendRealtimeInput({ text: 'Hello' });
-// sendClientContent → ONLY for history injection, NOT new messages
-```
-
-### Audio Formats
+### Audio / Input
 
 | Direction | Format | Rate |
 |-----------|--------|------|
 | Input (mic) | PCM 16-bit LE mono | 16kHz |
 | Output (speaker) | PCM 16-bit LE mono | 24kHz |
 
-### Session Limits
+```typescript
+session.sendRealtimeInput({ audio: { data: base64, mimeType: 'audio/pcm;rate=16000' } });
+session.sendRealtimeInput({ text: 'Hello' });
+// sendClientContent → ONLY for history injection, NOT new messages
+```
 
-| Mode | Duration | Notes |
-|------|----------|-------|
-| Audio only | **15 min** | Our primary mode |
-| Audio + video | **~2 min** | Only at input scan + climax burst |
-| With compression | Unlimited | Quality degrades over time |
+### Limits & Costs
 
-### Token Costs
-
-| Input | Cost |
-|-------|------|
-| Video frame (<=384px) | 258 tokens |
-| Audio | 32 tokens/sec |
-| Text | ~1 token/4 chars |
-
-At 1fps video + audio: ~290 tokens/sec → 128k / 290 ≈ 7 min max.
+| Mode | Duration | | Input | Cost |
+|------|----------|-|-------|------|
+| Audio only | 15 min (API), 10 min (our max) | | Video frame | 258 tokens |
+| Audio + video | ~2 min | | Audio | 32 tokens/sec |
+| With compression | Unlimited (quality degrades) | | Text | ~1 token/4 chars |
 
 ### VAD Config
 
-```typescript
-automaticActivityDetection: {
-  startOfSpeechSensitivity: 'START_SENSITIVITY_LOW',
-  endOfSpeechSensitivity: 'END_SENSITIVITY_LOW',
-  prefixPaddingMs: 20,
-  silenceDurationMs: 100,
-}
-```
+`START_SENSITIVITY_LOW`, `END_SENSITIVITY_HIGH`, `prefixPaddingMs: 20`, `silenceDurationMs: 500`
 
-### Session Resumption
-
-```typescript
-config: { sessionResumption: { handle: previousSessionHandle } }
-// Tokens valid 2hrs after disconnect
-// Server sends GoAway before killing (includes timeLeft)
-// Use audioStreamEnd when mic paused to flush cached audio
-```
-
-### `gemini.ts` implementation defaults
+### `gemini.ts` Implementation Defaults
 
 | Setting | Value | Notes |
 |---------|-------|-------|
-| Voice | `Charon` | Fixed at connect time |
-| VAD | LOW / LOW, `20ms` padding, `100ms` silence | Match hold-to-speak UX |
+| Voice | Flash-selected (fallback: `Charon`) | Locked at connect time |
+| VAD | LOW start / HIGH end, `20ms` padding, `500ms` silence | Natural phone conversation pauses |
 | Compression | `contextWindowCompression: { slidingWindow: {} }` | Longer sessions |
 | Transcriptions | Enable input + output | Required for subtitle UI |
-| Media resolution | `MEDIA_RESOLUTION_LOW` | Use when sparse video is enabled |
-| Mic release | `audio_end` → `audioStreamEnd` | Flush cached audio on button release |
+| Media resolution | `MEDIA_RESOLUTION_LOW` | Only for input scan frames |
+| Mic release | `audio_end` → `audioStreamEnd` | Flush cached audio on mute |
 
 ### Rules
 
@@ -270,11 +176,6 @@ config: { sessionResumption: { handle: previousSessionHandle } }
 | Response modality | Locked per session: TEXT or AUDIO |
 | Native audio | Generates speech directly (not text→TTS) — natural, emotional, low-latency |
 | Voice switching | IMPOSSIBLE mid-session. Must close + reconnect |
-| `MEDIA_RESOLUTION_LOW` | Fewer tokens per frame — use for sparse video |
-
-### 30 Voices (picked ONCE at session start)
-
-Selected: **Charon** (Informative). Other notable options: Fenrir (Excitable), Kore (Firm), Puck (Upbeat), Enceladus (Breathy), Leda (Youthful), Sulafat (Warm), Gacrux (Mature).
 
 ---
 
@@ -283,10 +184,10 @@ Selected: **Charon** (Informative). Other notable options: Fenrir (Excitable), K
 ```
 Browser (Astro/Svelte)              Cloud Run (Hono/TS)
 ┌─────────────────────┐            ┌──────────────────────┐
-│ Camera (getUserMedia)│            │ @google/genai         │
-│ Mic (getUserMedia)   │──WebSocket─│ ai.live.connect()    │
-│ Audio playback       │            │ Session state         │
-│ UI (subtitles, art)  │◄─WebSocket─│ Scenario prompts     │
+│ Mic (getUserMedia)   │            │ @google/genai         │
+│ Audio playback       │──WebSocket─│ ai.live.connect()    │
+│ UI (transcript, art) │            │ Tool call handler     │
+│ Text input           │◄─WebSocket─│ Scenario prompts     │
 │                      │            │ Profile read/write    │
 │ Deploy: Cloudflare   │            │                      │
 └─────────────────────┘            └──────────┬───────────┘
@@ -296,7 +197,7 @@ Browser (Astro/Svelte)              Cloud Run (Hono/TS)
                                    └──────────────────────┘
                                    ┌──────────────────────┐
                                    │ Firestore (profiles)  │
-                                   │ Gemini 3.1 (portraits)  │
+                                   │ Gemini 3.1 (portraits)│
                                    └──────────────────────┘
 ```
 
@@ -304,243 +205,223 @@ Browser (Astro/Svelte)              Cloud Run (Hono/TS)
 
 ## API Calls Per Session
 
-### Asset Pipeline
-
-- Scene image: Gemini 3.1 Image (immersive scene art)
-- Character avatar: Gemini 3.1 Image (character portrait)
-- DROPPED: background texture (colors from JSON are enough)
-- DROPPED: scenario card thumbnail
-
-### Non-Live API Calls
-
 | # | Call | Model | Purpose |
 |---|------|-------|---------|
-| 1 | Session preview JSON | `gemini-3-flash-preview` | Structured output: role, setting, stakes, colors, characterName |
-| 2 | Scene image | `gemini-3.1-flash-image-preview` | Era-specific scene art (can potentially combine with #3) |
-| 3 | Character avatar | `gemini-3.1-flash-image-preview` | Character portrait for session UI |
+| 1 | Session preview JSON | `gemini-3-flash-preview` | Structured output: character, setting, stakes, colors, voiceName |
+| 2 | Scene image | `gemini-3.1-flash-image-preview` | Era-specific scene art |
+| 3 | Character portrait | `gemini-3.1-flash-image-preview` | Character portrait for call screen |
 | 4 | Voice conversation | `gemini-2.5-flash-native-audio-preview-12-2025` | Live API session (real-time voice) |
-| 5 | **[Phase 2]** Post-session summary | `gemini-3-flash-preview` | Transcript extraction → key facts |
+| 5 | **[Phase 2]** Post-call summary | `gemini-3-flash-preview` | Transcript → key facts |
 
-**Phase 1 total**: 3 non-Live calls (preview JSON + scene image + character avatar) + 1 Live session = 4 calls
-**Phase 2 total**: 4 non-Live calls (add post-session summary) + 1 Live session = 5 calls
+**Phase 1 total**: 3 non-Live calls + 1 Live session = 4 calls
 
 ---
 
-## Game Flow
+## Call Flow
 
 | Step | Action | Mode |
 |------|--------|------|
-| 0 | **Warm-up** — First visit: name + age → Firestore. Returning: agent-generated question from last session | Pre-session |
-| 1 | **Input** — Student provides topic via text, voice (Web Speech API), or image (camera → Gemini Flash). Multimodal | Home screen |
-| 1b | **Session Preview** — Flash JSON first (role/setting/stakes/colors/characterName/voiceName), then scene image + avatar in parallel. Overlay on home screen. Preview card inherits story palette. User reviews, can EDIT or ACCEPT | Home overlay |
-| 1c | **Input Checkboxes** — ☑ "auto-activate mic" (pre-checked, controls whether mic starts ON) + ☑ "enable camera" (pre-checked, controls whether video is IN or NOT IN the session; unchecked = video completely off, not just muted). Voice is PRIMARY interaction | Home overlay |
-| 2 | **Enter Session** — User clicks [ENTER SESSION]. Client-side countdown overlay: STANDBY → CHANNEL OPEN → INCOMING TRANSMISSION. Meanwhile: Gemini Live API connects in background. Mic auto-activates (if checkbox checked) | Client-side + WS connect |
-| 3 | **Scene Setting** — Model speaks first. Agent narrates scenario in character voice. Mic already live — student can respond, interrupt, or revise | Live API, audio-only |
-| 4 | **Story** — Agent plays character(s) with affective dialog. Encourages acting but accepts calm reasoning | Audio-only |
-| 5 | **Drama twist** — Planned from scenario start. NEVER sensitive content | Audio-only |
-| 6 | **Student responds** | Audio-only |
-| 7 | **Probing** (if student can't demonstrate historical reasoning) — probe → hint → rephrase → progress story. Max 3 | Audio-only |
-| 8a | **Pass** → Funny story resolution from correct answer | Audio-only |
-| 8b | **Fail** → Funny hypothetical from wrong/no answer | Audio-only |
-| 9 | **Positive insight** about student. Save to profile: learning patterns, personality, topic history, next warm-up | Post-session |
+| 1 | **Input** — Student provides topic via text, voice (Web Speech API), or image (camera → Flash vision). Home screen | `/app` |
+| 1b | **Topic Clarification** — If topic is vague, Flash returns 3 person+moment cards inline on `/app`. Student picks one | `/app` inline |
+| 1c | **Preview Card** — Brief card with portrait, name, era, teaser. ☑ "Enable microphone" checkbox. [CALL] / [CANCEL] | `/app` overlay |
+| 2 | **Calling Screen** — iPhone-style: portrait circle, name, era, "calling..." animation. Gemini Live connects in background. Mic activates from [CALL] gesture | `/session` |
+| 2b | **Privacy Voice** — Automated: "This call is live and not recorded." Robotic tone, not the character | Before character speaks |
+| 3 | **Connected** — Character picks up. Already knows student (profile from Firestore). First visit: asks name conversationally. Tells their story | Live API, audio-only |
+| 4 | **Conversation** — Natural back-and-forth. Character leads. Student asks questions, gives opinions. At key moment: `announce_choice` with 2-3 options | Audio-only |
+| 5 | **Student's advice** — Student picks via card tap, voice, or typing. Character reacts with consequence + what actually happened | Audio-only |
+| 6 | **Closing** — Character's positive observation about the student. Ends with dignity. `end_session` | Audio-only |
+| 7 | **Call Log** — Who, duration, key facts, what happened after, character's message, suggested next calls. Downloadable share card | `/summary` |
 
-### Camera: Demo-Only (Persona Council Decision)
+### Camera: Input Only
 
-Camera OFF during role-play by default. At ONE climactic moment, agent offers opt-in:
-- Prompt: "Want to try something?" + clear **Skip** button
-- If accepted: 3-sec burst, agent reacts, done. No photo stored
-- If skipped: Agent uses affective dialog: "You sound nervous, advisor! Constantinople needs confidence!"
-- Never guilt-trip skipping. "Fair enough — I'll imagine your brave face. It's magnificent."
-- **Demo video for judges** shows the camera moment working once
+Camera is for showing what you're studying (textbook scan → topic extraction via Flash vision). NO camera during calls. No video. Audio-only phone call.
 
 ### Voice + Text Input (Hybrid Mode)
 
-Agent ALWAYS speaks via voice. Student can respond via **voice OR text**.
-- Mic auto-activates on session entry (mute/unmute toggle, spacebar shortcut when NOT focused on text input)
-- Text input field below chat log (always visible)
+Character ALWAYS speaks via voice. Student can respond via **voice OR text**.
+- Mic auto-activates when call connects (mute/unmute toggle, spacebar shortcut when NOT focused on text input)
+- Text input always visible below call controls
 - Text uses `session.sendRealtimeInput({ text: '...' })` — same API
-- Mic stays streaming while model speaks → user can interrupt naturally (VAD detects speech)
-- Spacebar toggles mic mute/unmute ONLY when `document.activeElement` is NOT the text input. If focused on text input, spacebar types normally. Can also click mic button to toggle
-- No `sendAudioEnd` on pauses — only when user explicitly mutes mic
+- Mic stays streaming while character speaks → student can interrupt naturally (VAD detects speech)
+- `audio_end` only when user explicitly mutes mic
 
-### Probing System (Step 8) — ALL IN-CHARACTER
+### Session End Triggers
 
-1. **Probe** — "If he's still hangry, he might not promote your father to..."
-2. **Hint** — Rephrase with more context
-3. **Progress story** — Move narrative toward answer so student can answer with common sense
-4. Max 3 probes → graceful fail (step 9b with humor)
+| Trigger | Who | Mechanism |
+|---------|-----|-----------|
+| Character wraps up | Model | Calls `end_session('story_complete')` |
+| Student hangs up | Student | Red button → frontend sends close → backend sends `end_session('student_request')` |
+| 9-min inject | System | Backend sends text: "Begin wrapping up naturally." |
+| 10-min timeout | System | Backend force-closes. Sends `ended` with reason `timeout` |
 
-Effective probing method saved to profile for future sessions.
+### Probing — All In-Character
 
-### Corpsing Rule (Max 1x Per Session)
+| Level | Example (Constantinople) |
+|-------|--------------------------|
+| 1. Guide | "The chain holds — but only the strait. What about the northern shore?" |
+| 2. Hint | "Seventy ships. He moved them over the hills. Over the HILLS." |
+| 3. Direct | "The harbor is breached. I have 300 men. Three options. Which?" |
+| 4. Resolve | "Too late. The ships are in the harbor. But you — you asked the right questions." |
 
-When student says something genuinely unexpected, narrator can briefly break:
-- "...even the storyteller didn't see that coming."
-- Then immediately back in character. Must be EARNED. Not for every joke.
+---
 
-### Voice Personality (Prompt Engineering)
+## Emotional Boundaries
 
-| Mode | Instruction |
-|------|-------------|
-| Narrator | Slower, descriptive, setting the scene |
-| Character | In-character, emotional, reactive |
-| Probing | Encouraging, patient, guiding |
-| Celebration | Excited, genuine praise |
+Emotion serves LEARNING, not attachment. Historical characters are emotional because history IS emotional — but clear limits prevent manipulation.
 
-Affective dialog handles emotional modulation; prompt handles role shifts.
+### ALLOWED
 
-### Scenario prompt requirements (`scenarios.ts`)
+| Emotion | Example |
+|---------|---------|
+| Urgency/stress | "The ships are in the harbor! We have hours, not days!" |
+| Gratitude | "Thank you, stranger. You helped me see clearly." |
+| Historical grief | "The city I swore to protect... it's falling." |
+| Pride | "You think like a true general." |
+| Humor (character-appropriate) | "You suggest we THROW the cannons? I like you." |
+| Dramatic tension | "If I make the wrong call, everyone in this city dies." |
 
-| Requirement | Detail |
-|-------------|--------|
-| Never break character | No teacher-mode language. All correction/probing stays in role |
-| Probing ladder | Probe → hint → rephrase → progress story |
-| Corpsing | Max 1x per session, only if earned, then immediately back in role |
-| Session pacing | Open fast, escalate clearly, wrap naturally by ~14 min |
-| Positive insight | End with an in-character positive observation about the student |
-| Twist | Seed conflict early so step 6 feels inevitable, not random |
-| Tone flexibility | Reward theatrical play, but also accept calm/logical answers |
+### FORBIDDEN
 
-`scenarios.ts` is the demo-critical file. The relay only carries the experience; the prompt creates it.
+| Boundary | Why |
+|----------|-----|
+| Crying, begging, despair | No emotional extremes — emotion serves learning |
+| "Don't leave me" / "I need you" | Creates parasocial dependency |
+| Guilt for hanging up | Student must feel free to end anytime |
+| "I'm real" / blurring AI boundary | Ethical clarity — this is an AI character |
+| Romantic undertones | Inappropriate for educational tool targeting minors |
+| Trauma dumping without resolution | Every difficult moment must resolve constructively |
+| Personal emotional dependency | Character is grateful, never dependent |
+
+### System Prompt Rule
+
+"You are a historical figure in a moment of crisis/importance. You feel real emotions appropriate to your situation. But you are NOT dependent on this student. You existed before the call and will continue after. End every call with dignity and a positive observation. Never make the student feel guilty for ending the conversation."
+
+---
+
+## Content Safety: Blocked Callers
+
+Some historical figures should not be role-played. Flash maintains a blocklist.
+
+### Blocked Categories
+
+| Category | Examples |
+|----------|---------|
+| Perpetrators of genocide | Hitler, Pol Pot, etc. |
+| Serial killers | — |
+| Figures whose role-play could normalize violence | — |
+
+### UX: "This line is disconnected"
+
+Stays in the phone metaphor. No lecture. No judgment.
+
+```
+> CALL FAILED
+> This number is not in service.
+>
+> Try calling someone who was there:
+>
+> [portrait] Sophie Scholl
+>   Munich, 1943
+>   "I resisted. Let me tell you why."
+>
+> [portrait] Oskar Schindler
+>   Kraków, 1944
+>   "I saved 1,200 lives."
+```
+
+### Implementation
+
+- Blocklist in Flash prompt + server-side validation
+- Flash instruction: "If the requested person is a perpetrator of genocide, mass violence, or serial crime, return type 'blocked' with 3 alternative people who witnessed or resisted the same events"
+- Server-side fallback: relay checks character name against hardcoded blocklist before connecting
+
+---
+
+## Preset Rotation + Caching
+
+| Aspect | Detail |
+|--------|--------|
+| Pool | Large set of pre-generated person+moment cards in Firestore |
+| Home display | Rotate 3 cards on each visit from the pool |
+| Portraits | Generated once per character via Gemini 3.1 Image, cached in DB. Neutral pose |
+| Multiple cards per character | One character can appear in multiple moments (e.g., Constantine XI: "the walls are falling" + "the night before the siege") |
+| User-generated | After Flash generates a person+moment for an open topic, cache the card + portrait for future rotation |
+| Freshness | Mix preset (curated) + user-generated (community) cards |
 
 ---
 
 ## Two Palette System
 
-| Palette | Name | Purpose | When applied |
-|---------|------|---------|-------------|
-| **System** | Default CSS tokens | App chrome: nav, logo, inputs, home page | Always — `global.css` `@theme {}` |
-| **Story** | Generated by Gemini Flash | Era atmosphere: session page, preview card | Per-session — inline CSS vars from OKLCH |
+| Palette | Purpose | When applied |
+|---------|---------|-------------|
+| **System** | App chrome: nav, logo, inputs, home page | Always — `global.css` `@theme {}` |
+| **Story** | Era atmosphere: call screen, preview card, call log | Per-session — inline CSS vars from OKLCH |
 
-**Rule**: Brand accent (red) stays fixed on the Past, Live logo. Everything else in session/preview inherits the story palette.
+**Rule**: Brand accent (red) stays fixed on the Past, Live logo. Everything else in call context inherits story palette.
 
 ### Story Palette OKLCH Constraints (enforced in Flash prompt)
 
-| Index | Role | Lightness | Example |
-|-------|------|-----------|---------|
-| 0 | Background | 8-15% | Very dark era tone |
-| 1 | Surface | 12-20% | Dark panel/card |
-| 2 | Accent | 55-75% | Vibrant era color |
-| 3 | Foreground | 85-95% | Readable text |
-| 4 | Muted | 30-45% | Subtle/secondary |
+| Index | Role | Lightness |
+|-------|------|-----------|
+| 0 | Background | 8-15% |
+| 1 | Surface | 12-20% |
+| 2 | Accent | 55-75% |
+| 3 | Foreground (text) | 85-95% |
+| 4 | Muted | 30-45% |
 
-**Guarantees**: 7:1+ contrast between foreground (3) and background (0). Preview card + session page both apply story palette via CSS custom properties.
+**Guarantees**: 7:1+ contrast between foreground (3) and background (0). Preview card + call screen both apply story palette via CSS custom properties.
 
 ---
 
-## UI Layout (Audio-Only Story)
+## UI Layout
 
-```
-┌─────────────────────────────┐
-│  [blurred color theme bg]   │
-│  > session active            │
-│  > constantinople 1453       │
-│  ┌───────────────────────┐  │
-│  │  Character Portrait   │  │
-│  │  (Gemini-generated)   │  │
-│  └───────────────────────┘  │
-│  ▁▃▅▇▅▃▁  (waveform)       │
-│  ┌───────────────────────┐  │
-│  │  > [CONSTANTINE XI]   │  │
-│  │    The harbor chain.. │  │
-│  │  > [YOU] Should we    │  │
-│  │    close the harbor?  │  │
-│  └───────────────────────┘  │
-│  click mic to mute · type   │
-│  ┌──────────────────┐       │
-│  │ 🎙️ channel open  │       │
-│  └──────────────────┘       │
-│  ┌───────────────────────┐  │
-│  │ type your orders...   │  │
-│  └───────────────────────┘  │
-└─────────────────────────────┘
-```
+Full mockups in `design/ux-details.md`. Key elements:
 
-| Element | Source |
+### In-Call Screen
+
+| Element | Detail |
 |---------|--------|
-| Color theme | Gemini Flash → 5 OKLCH colors override ALL session CSS custom props (background, surface, accent, foreground, muted). Brand logo color stays fixed. Full era-specific atmosphere. |
-| Scene image | Gemini 3.1 Image (from session preview). NOT a portrait — immersive scene art that sets tone/mood. Responsive size. Era-specific art style (Byzantine mosaic, NASA photo, Mongolian ink wash). Different prompt per era — see `server/src/image-prompts.ts` |
-| Waveform | CSS animation, driven by `$isSpeaking` audio playback state |
-| Chat log | Three sender tags: `> [CHARACTER_NAME]` (from preview JSON), `> [NARRATOR]` (corpsing only — detect via "even the storyteller" keyword), `> [YOU]` or `> [USER_NAME]` (default "YOU", use student name from Firestore/storage when available). Auto-scroll |
-| Hint bar | "click mic to mute · or type below" (persistent, subtle) |
-| Mic button | Mute/unmute toggle (auto-active, spacebar shortcut) |
-| Text input | Always visible, sends via `sendRealtimeInput({ text })` |
+| Scene banner | Gemini 3.1 Image, 16:9 landscape, era-specific |
+| Header | Character name + era + timer (counts UP: `00:03:42`) |
+| Chat log | `> [CHARACTER_NAME]`, `> [A MESSENGER]` (via switch_speaker), `> [YOU]` or `> [STUDENT_NAME]` |
+| Choice cards | Via `announce_choice`. Tappable. Auto-dismiss on voice input |
+| Controls | `[speaker] [hang up (red)] [mute]` — iPhone-style bottom bar |
+| Text input | Always visible below controls |
+| Waveform | CSS animation, `$isSpeaking` state |
 
-### Session Preview Overlay (Home Screen)
+### Other Screens
 
-```
-┌───────────────────────────────┐
-│  > SESSION BRIEFING            │
-│  ┌─────────────┐              │
-│  │  [Portrait]  │              │
-│  │  generated   │              │
-│  └─────────────┘              │
-│  You are: Emperor's advisor   │
-│  Setting: Constantinople 1453 │
-│  Stakes: The walls are        │
-│    falling. Mehmed's army     │
-│    surrounds the city.        │
-│                               │
-│  ☑ Auto-activate mic           │
-│  ☑ Enable camera               │
-│                               │
-│  [EDIT]    [ENTER SESSION]    │
-└───────────────────────────────┘
-```
+| Screen | Key Detail |
+|--------|------------|
+| Preview card | Portrait + name + era + teaser + ☑ mic checkbox + [CALL] / [CANCEL]. Story palette. No camera checkbox |
+| Calling screen | Portrait circle + "calling..." → "connected". Privacy voice before character speaks |
+| Call log (`/summary`) | Duration, key facts, what happened after, character's farewell message, suggested next calls, [Save] |
+| Share card | 9:16 downloadable. Character's farewell. Download button OUTSIDE card |
 
-### Session Preview Loading
+---
 
-Simple spinner + fun loading text in brand voice (uses shared Loading Text Component). Overlay appears fully populated when all Gemini calls complete.
+## Session Timer
 
-### Countdown Overlay (Session Page)
+Timer counts UP from `00:00:00` (phone call style). Always visible below character name.
 
-3 seconds total. Plays fully regardless of connection speed — it's a mental-model builder, not a progress bar.
+| Time | Action |
+|------|--------|
+| 9 min | Backend injects: "Begin wrapping up naturally." (text to model) |
+| 10 min | Backend force-closes: `session.close()` + `{ type: 'ended', reason: 'timeout' }` |
 
-```
-> STANDBY...           (1s)
-> CHANNEL OPEN...      (1s)
-> INCOMING TRANSMISSION... (1s)
-→ Session active, model speaks first
-```
-
-| Scenario | Behavior |
-|----------|----------|
-| Connection faster than countdown | Countdown still plays fully. Session starts after countdown |
-| Connection slower than countdown | After countdown, show brand-voice fun loading messages (same rotating text component as preview loading) until ready |
-
-Countdown runs while Gemini Live API connects in background. Mic + camera activate during countdown (from ENTER SESSION gesture).
-
-### Loading Text Component (DRY — Shared)
-
-Same rotating fun text component used for BOTH preview loading AND connection wait. Single source of truth.
-
-| Usage | When |
-|-------|------|
-| Session preview loading | While Flash generates JSON + images |
-| Connection wait | If WS connection slower than countdown |
-
-Examples: "> wiring up the time machine...", "> dusting off the history books...", "> recruiting your character..."
+No minimum. Student can hang up at 30 seconds.
 
 ---
 
 ## Demo Scenarios
 
-| Scenario | Era | Role | Twist |
-|----------|-----|------|-------|
-| Fall of Constantinople | 1453 | Emperor's advisor | Mehmed drags ships overland — harbor defense failed |
-| Moon Landing | 1969 | NASA mission control | Fuel warning — 25 sec to decide: abort or land |
-| Mongol Empire | 1206 | Khan's rival | Alliance or war — tribe survival at stake |
+| Scenario | Era | Character | Teaser |
+|----------|-----|-----------|--------|
+| Fall of Constantinople | 1453 | Constantine XI | "The walls are falling." |
+| Moon Landing | 1969 | Gene Kranz | "25 seconds of fuel." |
+| Mongol Empire | 1206 | Jamukha | "The khan rides." |
 
-### What each scenario prompt must contain
-
-| Section | Purpose |
-|---------|---------|
-| Role + stakes | Tell Gemini who it is, who the student is, and what failure costs |
-| Opening beat | Reach scene-setting fast, under 30 sec to action |
-| Historical anchors | 2-3 facts the student can reason from |
-| Twist handling | Define the crisis turn and how to escalate it |
-| Probe behavior | Keep nudging in-character without sounding like a tutor |
-| Ending logic | Resolve to pass/fail gracefully and land step 10 insight |
+Person+moment cards on home screen. "Who do you want to call?"
 
 ---
 
@@ -557,7 +438,6 @@ interface StudentProfile {
     effectiveProbes: ('encourage' | 'hint' | 'rephrase' | 'progress')[];
     reasoningStyle: 'emotional' | 'logical' | 'creative' | 'mixed';
     engagementLevel: 'high' | 'medium' | 'low';
-    expressionReactivity: 'performative' | 'reserved' | 'shy';
   };
   personality: {
     traits: string[];           // "quick thinker", "empathetic", "strategic"
@@ -566,35 +446,35 @@ interface StudentProfile {
   };
   sessions: {
     scenarioId: string;
+    characterName: string;
     date: Timestamp;
-    outcome: 'pass' | 'probed' | 'fail';
-    probesUsed: number;
+    duration: number;           // seconds
     topicsCovered: string[];
-    agentInsight: string;       // Positive observation from step 10
+    agentInsight: string;       // Character's positive observation
   }[];
   nextWarmUp: {
     question: string;
-    context: string;            // Why this question was chosen
+    context: string;
   };
 }
 ```
 
 ---
 
-## Backend Relay Contract (Hackathon Slice)
+## Backend Relay Contract
 
-### Browser → backend
+### Browser → Backend
 
 ```typescript
 type ClientMessage =
-  | { type: 'start'; scenarioId?: string; topic?: string; studentName?: string }
+  | { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string }
   | { type: 'audio'; data: string; mimeType: 'audio/pcm;rate=16000' }
-  | { type: 'audio_end' } // relay sends Gemini audioStreamEnd
+  | { type: 'audio_end' }       // relay sends Gemini audioStreamEnd
   | { type: 'text'; text: string }
   | { type: 'video'; data: string; mimeType: 'image/jpeg' };
 ```
 
-### Backend → browser
+### Backend → Browser
 
 ```typescript
 type ServerMessage =
@@ -603,17 +483,18 @@ type ServerMessage =
   | { type: 'input_transcription'; text: string }
   | { type: 'output_transcription'; text: string }
   | { type: 'interrupted' }
+  | { type: 'speaker_switch'; speaker: 'character'; name: string }
+  | { type: 'choices'; choices: { title: string; description: string }[] }
   | { type: 'error'; message: string }
   | { type: 'ended'; reason: string };
 ```
 
 | Rule | Detail |
 |------|--------|
-| `start` payload | Must include exactly ONE of `scenarioId` or `topic` |
+| `start` payload | Must include exactly ONE of `scenarioId` or `topic`. Optional `voiceName` |
 | Scenario cards | Use `scenarioId` |
-| Freeform study input | Use `topic` |
-| Subtitle event name | Standardize on `output_transcription` |
-| Hold-to-speak release | Browser sends `audio_end`; relay maps to Gemini `audioStreamEnd` |
+| Freeform topic | Use `topic` |
+| `audio_end` | Browser sends when user mutes mic; relay maps to `audioStreamEnd` |
 
 ---
 
@@ -628,133 +509,85 @@ type ServerMessage =
 
 ---
 
-## Testing Strategy (Hackathon Slice)
+## Testing Strategy
 
-### Full-flow states to cover
+### Full-flow states
 
 | State | Screen | Success condition |
 |-------|--------|-------------------|
-| `home` | `/` | User can start from scenario card or typed topic |
-| `connecting` | `/session` | Browser opens WS and sends `start` |
-| `active` | `/session` | Audio, subtitles, mic, text input all work |
-| `camera_opt_in` | `/session` | Accept and skip paths both preserve flow |
-| `ended` | `/summary` | Browser routes after `{ type: 'ended' }` |
-| `error` | `/session` | Browser shows reconnect / retry UI |
+| `home` | `/app` | Student can call from person+moment card or typed topic |
+| `clarifying` | `/app` | Vague topic → 3 inline person+moment cards → student picks |
+| `previewing` | `/app` overlay | Preview card shows portrait, name, era, teaser |
+| `calling` | `/session` | Calling screen → privacy voice → connected |
+| `active` | `/session` | Audio, transcript, mute toggle, text input, choice cards |
+| `ended` | `/summary` | Call log with key facts, character's message, next calls |
+| `error` | `/session` | Reconnect / retry UI |
 
 ### Test layers
 
 | Layer | What to test | Tool |
 |-------|--------------|------|
-| Browser state | Session status transitions, summary artifact, reconnect state | Vitest |
-| Prompt logic | Scenario prompt depth and rules | Vitest |
-| Relay integration | WS upgrade, message forwarding, cleanup, interruption | Vitest + `ws` |
-| Manual critical path | Mic, speaker playback, camera opt-in, reconnect UX | Browser + local dev server |
+| Browser state | Session status transitions, call log, reconnect | Vitest |
+| Prompt logic | Character lock, probing, emotional boundaries | Vitest |
+| Relay integration | WS upgrade, message forwarding, tool calls, timer | Vitest + `ws` |
+| Manual critical path | Mic, speaker playback, choice cards, hang up | Browser + local dev server |
 
 ### Required coverage
 
 | Area | Must verify |
 |------|-------------|
-| Protocol | `start`, `audio`, `audio_end`, `text`, `video`, `interrupted`, `ended`, `error` |
-| Prompt quality | Character lock, probing ladder, corpsing limit, pacing, positive ending |
-| Voice path | Hold-to-speak streams PCM 16kHz and flushes on release |
-| Text path | Typed response gets the same Gemini turn handling as voice |
-| Audio output | PCM 24kHz playback queues and clears on interruption |
-| Summary handoff | `/summary` receives deterministic session artifact |
-| Error handling | Socket close / server error moves UI into retry state |
-
-### Summary MVP
-
-| Field | Source |
-|-------|--------|
-| Scenario title / role | Selected scenario metadata |
-| Duration | Browser session timer |
-| Key facts | Deterministic scenario facts |
-| What actually happened | Deterministic scenario outcome copy |
-| Your call | Last meaningful student transcript / text input |
-| Next briefings | Static related scenarios |
+| Protocol | `start`, `audio`, `audio_end`, `text`, `interrupted`, `speaker_switch`, `choices`, `ended`, `error` |
+| Tool calling | `end_session` → redirect, `switch_speaker` → tag update, `announce_choice` → cards shown |
+| Prompt quality | No narrator, no corpsing, emotional boundaries enforced, positive closing |
+| Voice path | Mic streams PCM 16kHz, flushes on mute |
+| Text path | Typed response gets same Gemini handling as voice |
+| Audio output | PCM 24kHz playback queues, clears on interruption |
+| Timer | Counts up, 9-min inject, 10-min force-close |
+| Blocked callers | "This line is disconnected" + redirect to alternatives |
+| Call log | `/summary` receives call data (deterministic for Phase 1) |
 
 ### Hackathon Implementation Phases
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| **Phase 1** | Feedback fixes (13 issues from David/Huy testing) — makes demo workable | In progress |
-| **Phase 2** | Judge-impressors — makes demo impressive | TODO |
+| **Phase 1** | Feedback fixes + call metaphor pivot + tool calling | In progress |
+| **Phase 2** | Judge-impressors | TODO |
 
-#### Phase 2 TODO (after Phase 1 ships)
+#### Phase 2 TODO
 
-- [ ] **Firestore profiles** — StudentProfile schema, name/age collection, session history, learning patterns
-- [ ] **Post-session Gemini summary** — Send transcript to Flash, extract real key facts (replace deterministic summary)
-- [ ] **Camera demo moment** — Climax opt-in (Step 5 twist), 3-sec burst, agent reacts. For demo video
-- [ ] **Returning visit warm-up** — Agent-generated question from last session
-- [ ] **Student profile persistence** — Save learning patterns, personality, effective probes to Firestore
-- [ ] **Social sharing card** — After session, generate a funny summary card (downloadable/screenshottable for Instagram). Download button OUTSIDE the card. If user has a photo saved, generate face variation wearing character's outfit (head swap). Example: "If you were Khan, the Mongolian Empire would have been gone 100 years earlier than it did"
-- [ ] **Persistent avatar** — Top-right corner of app. Links to Clerk auth. Saves progress to Firestore
-- [ ] **Auth strategy** — Clerk auth, profile data in Firestore. Anonymous-first, sign-up-later pattern. Welcome signups, save profiles. DO NOT force registration to use the app
-- [ ] **Clerk + Firestore** — Auth via Clerk, profile data in Firestore (not Convex)
-
----
-
-## Session Timer
-
-Hidden until 5 minutes remaining. Dispatch format: `> 4:32 remaining`. At `> 2:00 remaining` turns accent color + pulses. Agent wraps up by ~14 min via prompt pacing.
+- [ ] **Firestore profiles** — StudentProfile schema, name/age collection, session history
+- [ ] **Post-call Gemini summary** — Send transcript to Flash, extract key facts
+- [ ] **Returning visit warm-up** — Character references past calls
+- [ ] **Student profile persistence** — Save learning patterns, personality to Firestore
+- [ ] **Downloadable share card** — Character's farewell as 9:16 image. Download button outside card
+- [ ] **Preset rotation** — Firestore pool of person+moment cards, rotate 3 per visit
+- [ ] **Persistent avatar** — Top-right corner. Links to Clerk auth
+- [ ] **Auth strategy** — Clerk auth, profile in Firestore. Anonymous-first, sign-up-later
+- [ ] **Content safety blocklist** — Flash + server-side blocked callers
 
 ---
 
-## Error States for Preview
+## Error States
 
 | Failure | Behavior |
 |---------|----------|
 | Flash JSON fails | Show error, allow retry |
-| Image model fails | Show placeholder image, session still works |
+| Image model fails | Show placeholder image, call still works |
 | Both fail | Fall back to preset scenario metadata |
+| Blocked caller | "This number is not in service" + 3 alternatives |
 
 ---
 
 ## Mobile Responsiveness
 
-Portrait responsive layout for session page:
-- Chat log scrollable
-- Mic/text accessible with virtual keyboard open
-- All controls reachable in portrait mode
-
----
-
-## LLM Dogfooding / Testing Strategy
-
-Claude is used to dogfood the app but cannot process audio directly.
-
-| Strategy | Purpose |
-|----------|---------|
-| Mode 1: Verbose event logs | Structured console/server logs for every event: WS messages, state transitions, audio start/stop, transcriptions, errors. Always-on in dev, off in prod |
-| Mode 2: Text-only test endpoint | `POST /test-session` — runs full Gemini Live session in TEXT mode (no audio). Claude calls directly via curl/WebFetch. Returns structured JSON transcript |
-| Mode 3: Structured test output | Post-session JSON report: all messages with timestamps, state transitions, prompt variant, duration, error count. For automated A/B analysis |
-
----
-
-## PostHog Setup
-
-PostHog component exists but needs configuration. Add as prerequisite task before launch.
-
----
-
-## Demo Video
-
-Submission requirement: demo video < 4 min. Plan recording flow before deadline.
-
----
-
-## Submission Deliverables
-
-Each gets its own todo file:
-
-| Deliverable | Status |
-|-------------|--------|
-| README with spin-up instructions | TODO |
-| Public GitHub repo strategy (currently in monorepo) | TODO |
-| GCP deployment proof (screen recording) | TODO |
-| Hackathon text description | TODO |
-| Architecture diagram | TODO |
-| Demo video (< 4 min) | TODO |
+| Aspect | Detail |
+|--------|--------|
+| Layout | Single column, portrait-first |
+| Chat log | Scrollable, flex-1, auto-scroll to latest |
+| Call controls | Bottom bar, thumb-reachable (iPhone call layout) |
+| Virtual keyboard | Text input pushes content up |
+| Touch targets | Minimum 44px |
+| Hang up button | Centered, prominent, red |
 
 ---
 
@@ -765,8 +598,7 @@ Pedagogy from `/Volumes/BIWIN/CODES/expo/apps/studybit/`:
 | Concept | Detail |
 |---------|--------|
 | Derivable learning | Questions require reasoning, not memorization |
-| Anchors | 2-3 contextual anchors per question for deriving answers |
-| Framings | Role-play + timeline framings (`studybit/framings/`) |
+| Anchors | 2-3 contextual anchors per question |
 | Research backing | Elaborative interrogation (+30-50%), generation effect (+40-60%), emotional encoding (+45-60%) |
 
 ---
@@ -802,14 +634,15 @@ cd apps/past-live/server && gcloud run deploy past-live-backend --source . --reg
 |-------|-----|
 | `@google/generative-ai` | DEPRECATED — use `@google/genai` |
 | Voice can't switch mid-session | Pick one at connect. Affective dialog for tone shifts |
-| Video burns 258 tokens/frame | `MEDIA_RESOLUTION_LOW`, frames only at climax |
-| Audio+video = 2 min limit | Audio-only role-play (15 min), sparse video at key moments |
+| Video burns 258 tokens/frame | `MEDIA_RESOLUTION_LOW`, frames only at input scan |
+| Audio+video = 2 min limit | Audio-only calls (10 min max), sparse video at input only |
 | `sendClientContent` vs `sendRealtimeInput` | `sendRealtimeInput` for new input. `sendClientContent` for history only |
 | Response modality locked | TEXT or AUDIO per session. We use AUDIO |
 | PCM rates differ | Input: 16kHz, Output: 24kHz |
 | Affective dialog needs v1alpha | `httpOptions: { apiVersion: 'v1alpha' }` |
 | `VITE_*` unavailable in Svelte islands | Pass as props from `.astro` parent |
 | Firestore in Cloud Run | Application Default Credentials (no API key) |
+| No narrator exists | Everything is the character. `switch_speaker` is multi-character only |
 
 ---
 
@@ -817,21 +650,20 @@ cd apps/past-live/server && gcloud run deploy past-live-backend --source . --reg
 
 | Doc | Path | Contents |
 |-----|------|----------|
-| **UX Details** | `design/ux-details.md` | All UX decisions, mockups, persona quotes, scope. 15 sections covering camera, input, auth, mobile, social, timer |
+| **UX Details** | `design/ux-details.md` | Call metaphor, preview flow, in-call layout, emotional boundaries, choice cards, call log, content safety, preset rotation, auth |
 | **Brand Voice** | `design/brand-voice.md` | 5 registers (Codex, Dispatch, Gilded Ruin, Midnight Theater, Glitch Cinema). Loading text, chat log format, error copy |
 | **Persona Research** | `design/research/personas.md` | 6 student personas used for validation |
 | **Council Verdict** | `design/research/council-verdict.md` | Persona council results and decision rationale |
-| **Phase 1 Todos** | `todos/phase-1-feedback-fixes.md` | 15 feedback issues with full details, error states, batches |
-| **Phase 2 Todos** | `todos/phase-2-judge-impressors.md` | 9 items: Firestore, Gemini summary, camera demo, social card, auth, dogfooding |
+| **Phase 1 Todos** | `todos/phase-1-feedback-fixes.md` | Feedback issues with full details, error states, batches |
+| **Phase 2 Todos** | `todos/phase-2-judge-impressors.md` | Firestore, Gemini summary, share card, auth, preset rotation |
 | **Demo Video** | `todos/demo-video.md` | Recording flow, pitch points, timing breakdown |
-| **Asset Prompts** | `todos/asset-pipeline-prompts.md` | Scene image + character avatar prompt engineering (needs brainstorming) |
+| **Asset Prompts** | `todos/asset-pipeline-prompts.md` | Scene image + character portrait prompt engineering |
 | **Architecture** | `todos/architecture-diagram.md` | System diagram requirements |
 | **README** | `todos/readme-spinup.md` | Spin-up instructions for judges |
 | **Public Repo** | `todos/public-github-repo.md` | Strategy for extracting from monorepo |
 | **GCP Proof** | `todos/gcp-deployment-proof.md` | Deployment proof options |
 | **Text Description** | `todos/hackathon-text-description.md` | Submission text content |
-| **Observability** | `todos/configure-observability.md` | Logging/monitoring setup |
-| **Implementation Plan** | `~/.claude/plans/crispy-stargazing-cocke.md` | Full batched implementation plan with TDD |
+| **Tool Calling Plan** | `~/.claude/plans/tool-calling-implementation.md` | Tool declarations, protocol changes, voice catalog, execution batches |
 
 ---
 

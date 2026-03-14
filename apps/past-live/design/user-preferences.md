@@ -7,7 +7,7 @@
 | Name | **Past, Live** |
 | Tagline | The past is speaking. Are you? |
 | Slug | `past-live` |
-| Purpose | History role-play tutor via real-time voice AI |
+| Purpose | Call historical figures to learn through conversation via real-time voice AI |
 
 ## Aesthetic Direction
 
