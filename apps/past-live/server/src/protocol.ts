@@ -19,6 +19,8 @@ export type ClientMessage =
       topic?: string;
       studentName?: string;
       voiceName?: string;
+      /** Clerk user ID — used to save call record to Firestore. Optional for anonymous users. */
+      studentId?: string;
       /** Character name from session-preview metadata (used by relay for summary). */
       characterName?: string;
       /** Historical setting from session-preview metadata (used by relay for summary). */
@@ -98,11 +100,12 @@ export function parseClientMessage(raw: string): ClientMessage {
       }
       const studentName = typeof obj['studentName'] === 'string' ? obj['studentName'] : undefined;
       const voiceName = typeof obj['voiceName'] === 'string' ? obj['voiceName'] : undefined;
+      const studentId = typeof obj['studentId'] === 'string' ? obj['studentId'] : undefined;
       const characterName = typeof obj['characterName'] === 'string' ? obj['characterName'] : undefined;
       const historicalSetting = typeof obj['historicalSetting'] === 'string' ? obj['historicalSetting'] : undefined;
       return hasScenario
-        ? { type: 'start', scenarioId: obj['scenarioId'] as string, studentName, voiceName, characterName, historicalSetting }
-        : { type: 'start', topic: obj['topic'] as string, studentName, voiceName, characterName, historicalSetting };
+        ? { type: 'start', scenarioId: obj['scenarioId'] as string, studentName, voiceName, studentId, characterName, historicalSetting }
+        : { type: 'start', topic: obj['topic'] as string, studentName, voiceName, studentId, characterName, historicalSetting };
     }
   }
 }

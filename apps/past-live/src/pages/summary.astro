@@ -7,11 +7,13 @@ export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SummaryView from "@/components/SummaryView.svelte";
 import ShareCard from "@/components/ShareCard.svelte";
+import SaveCallsNudge from "@/components/SaveCallsNudge.svelte";
 ---
 
 <BaseLayout title="Past, Live — Call Ended">
   <main class="flex flex-col min-h-screen px-5 py-8 max-w-md mx-auto">
     <SummaryView client:load />
     <ShareCard client:load />
+    <SaveCallsNudge client:load />
   </main>
 </BaseLayout>

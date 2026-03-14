@@ -13,5 +13,8 @@
   },
   "observability": {
     "enabled": true
+  },
+  "vars": {
+    "PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_bW9yZS1weXRob24tNTAuY2xlcmsuYWNjb3VudHMuZGV2JA"
   }
 }

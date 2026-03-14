@@ -5,6 +5,7 @@
    * @props - scenarioId, topic, backendWsUrl, mic (auto-activate)
    */
   import { onDestroy } from 'svelte';
+  import { $authStore as auth } from '@clerk/astro/client';
   import {
     $status as status,
     $error as error,
@@ -94,6 +95,7 @@
 
   if (scenarioId || topic) {
     // Phase 2: pass preview context for post-call summary prompt on the backend
+    // studentId is undefined for anonymous users — backend only saves to Firestore when present
     const previewCtx = previewData.get();
     connectSession({
       scenarioId,
@@ -102,6 +104,7 @@
       backendWsUrl,
       characterName: previewCtx?.characterName,
       historicalSetting: previewCtx?.historicalSetting,
+      studentId: auth.get()?.userId ?? undefined,
     });
   }
 
@@ -186,6 +189,7 @@
       backendWsUrl,
       characterName: previewCtx?.characterName,
       historicalSetting: previewCtx?.historicalSetting,
+      studentId: auth.get()?.userId ?? undefined,
     });
   }
 

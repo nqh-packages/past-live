@@ -33,6 +33,8 @@ export interface ConnectConfig {
   characterName?: string;
   /** Phase 2: passed to backend for post-call summary prompt context */
   historicalSetting?: string;
+  /** Phase 2: Clerk user ID — undefined for anonymous users, saves calls to Firestore when present */
+  studentId?: string;
 }
 
 // ─── Module state ─────────────────────────────────────────────────────────────
@@ -71,11 +73,12 @@ export function connectSession(config: ConnectConfig): void {
     const baseMsg = config.scenarioId
       ? { type: 'start', scenarioId: config.scenarioId, voiceName: config.voiceName }
       : { type: 'start', topic: config.topic, voiceName: config.voiceName };
-    // Phase 2: include preview context for post-call summary generation
+    // Phase 2: include preview context for post-call summary generation + optional studentId
     const startMsg = {
       ...baseMsg,
       ...(config.characterName ? { characterName: config.characterName } : {}),
       ...(config.historicalSetting ? { historicalSetting: config.historicalSetting } : {}),
+      ...(config.studentId ? { studentId: config.studentId } : {}),
     };
     ws!.send(JSON.stringify(startMsg));
   };

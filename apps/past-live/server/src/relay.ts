@@ -5,12 +5,11 @@
  */
 
 import type { WSContext } from 'hono/ws';
-import { parseClientMessage, serializeServerMessage } from './protocol.js';
+import { parseClientMessage, serializeServerMessage, type ClientMessage } from './protocol.js';
 import { getScenario, buildOpenTopicPrompt } from './scenarios.js';
-import { createGeminiSession } from './gemini.js';
-import type { GeminiSession } from './gemini.js';
-import { generatePostCallSummary } from './post-call-summary.js';
-import type { PostCallSummary } from './post-call-summary.js';
+import { createGeminiSession, type GeminiSession } from './gemini.js';
+import { generatePostCallSummary, type PostCallSummary } from './post-call-summary.js';
+import { onSessionEnd } from './relay-hooks.js';
 import { logger } from './logger.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -37,6 +36,10 @@ interface RelayState {
   characterName: string;
   /** Historical setting resolved from scenario or start message context. */
   historicalSetting: string;
+  /** Clerk user ID (optional). scenarioId and start epoch for Firestore call record. */
+  studentId: string | undefined;
+  scenarioId: string | undefined;
+  sessionStartMs: number | undefined;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -86,6 +89,7 @@ export function createRelay(ws: WSContext): void {
     inputTranscripts: [],
     characterName: '',
     historicalSetting: '',
+    studentId: undefined, scenarioId: undefined, sessionStartMs: undefined,
   };
 
   logger.debug({ event: 'ws_open' }, 'WebSocket connection opened');
@@ -131,8 +135,8 @@ function handleClientMessage(ws: WSContext, state: RelayState, raw: string): voi
             event: 'start_error',
             code: 'RELAY_START_001',
             err,
-            scenarioId: msg.type === 'start' ? msg.scenarioId : undefined,
-            topic: msg.type === 'start' ? msg.topic : undefined,
+            scenarioId: msg.scenarioId,
+            topic: msg.topic,
             action: 'Check GEMINI_API_KEY and network connectivity',
           },
           'Failed to start Gemini session',
@@ -146,12 +150,7 @@ function handleClientMessage(ws: WSContext, state: RelayState, raw: string): voi
 
     case 'audio':
       state.audioCunkCount++;
-      if (state.audioCunkCount % 10 === 0) {
-        logger.debug(
-          { event: 'audio_chunks_sent', sessionId: state.sessionId, count: state.audioCunkCount },
-          'Audio chunks forwarded to Gemini',
-        );
-      }
+      if (state.audioCunkCount % 10 === 0) logger.debug({ event: 'audio_chunks_sent', sessionId: state.sessionId, count: state.audioCunkCount }, 'Audio chunks forwarded to Gemini');
       state.session?.sendAudio(msg.data);
       break;
 
@@ -208,16 +207,15 @@ async function endSessionWithSummary(
     );
   }
 
+  // Fire-and-forget — Firestore errors must not block the ended message
+  const duration = Math.round((Date.now() - (state.sessionStartMs ?? Date.now())) / 1000);
+  void onSessionEnd({ studentId: state.studentId, characterName: state.characterName, historicalSetting: state.historicalSetting, duration, summary, scenarioId: state.scenarioId });
   sendToClient(ws, { type: 'ended', reason, summary });
 }
 
 // ─── Start handler ────────────────────────────────────────────────────────────
 
-async function handleStart(
-  ws: WSContext,
-  state: RelayState,
-  msg: { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string; characterName?: string; historicalSetting?: string },
-): Promise<void> {
+async function handleStart(ws: WSContext, state: RelayState, msg: Extract<ClientMessage, { type: 'start' }>): Promise<void> {
   // Guard against double-start
   if (state.started) return;
   state.started = true;
@@ -256,6 +254,7 @@ async function handleStart(
 
   const sessionId = generateSessionId();
   state.sessionId = sessionId;
+  state.studentId = msg.studentId; state.scenarioId = msg.scenarioId; state.sessionStartMs = Date.now();
 
   // Open Gemini session with tool call handler
   const session = await createGeminiSession({
