@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=2560, height=1600">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #161616;
+    --fg: #e8e0d8;
+    --accent: #ff3c28;
+    --accent-glow: rgba(255, 60, 40, 0.2);
+    --redacted: rgba(255, 60, 40, 0.12);
+    --muted: rgba(232, 224, 216, 0.3);
+    --border: rgba(255, 255, 255, 0.06);
+  }
+
+  body {
+    width: 2560px;
+    height: 1600px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ═══ LAYER 1: Ambient glow — deep red origin point ═══ */
+  .glow-primary {
+    position: absolute;
+    width: 1200px;
+    height: 1200px;
+    left: 200px;
+    top: 300px;
+    background: radial-gradient(ellipse at center,
+      rgba(255, 60, 40, 0.07) 0%,
+      rgba(255, 60, 40, 0.03) 35%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .glow-secondary {
+    position: absolute;
+    width: 800px;
+    height: 800px;
+    right: 300px;
+    bottom: 200px;
+    background: radial-gradient(ellipse at center,
+      rgba(255, 60, 40, 0.04) 0%,
+      transparent 60%
+    );
+    pointer-events: none;
+  }
+
+  /* ═══ LAYER 2: Grid pattern — war room tactical grid ═══ */
+  .grid-pattern {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 80px 80px;
+    pointer-events: none;
+  }
+
+  /* ═══ LAYER 3: Scanlines — CRT monitor ═══ */
+  .scanlines {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.012) 0px,
+      rgba(255, 255, 255, 0.012) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+    pointer-events: none;
+    z-index: 40;
+  }
+
+  /* ═══ LAYER 4: Film grain ═══ */
+  .grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 41;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+  }
+
+  /* ═══ LAYER 5: Vignette — darkened edges ═══ */
+  .vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 70% 65% at 35% 50%,
+      transparent 0%,
+      rgba(0, 0, 0, 0.4) 100%
+    );
+    pointer-events: none;
+    z-index: 42;
+  }
+
+  /* ═══ LAYER 6: Dispatch margin — vertical red line ═══ */
+  .dispatch-margin {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 140px;
+    width: 2px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(255, 60, 40, 0.15) 15%,
+      rgba(255, 60, 40, 0.08) 50%,
+      rgba(255, 60, 40, 0.15) 85%,
+      transparent 100%
+    );
+  }
+
+  /* Second margin line — double-rule declassified doc style */
+  .dispatch-margin-2 {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 148px;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(255, 60, 40, 0.06) 20%,
+      rgba(255, 60, 40, 0.04) 80%,
+      transparent 100%
+    );
+  }
+
+  /* ═══ LAYER 7: Horizontal rule lines — document structure ═══ */
+  .rule-top {
+    position: absolute;
+    top: 160px;
+    left: 140px;
+    right: 200px;
+    height: 1px;
+    background: linear-gradient(to right, rgba(255, 60, 40, 0.2), rgba(255, 255, 255, 0.04) 40%, transparent);
+  }
+
+  .rule-bottom {
+    position: absolute;
+    bottom: 180px;
+    left: 140px;
+    right: 200px;
+    height: 1px;
+    background: linear-gradient(to right, rgba(255, 60, 40, 0.12), rgba(255, 255, 255, 0.03) 50%, transparent);
+  }
+
+  /* ═══ CONTENT: Main typography block ═══ */
+  .content {
+    position: absolute;
+    left: 190px;
+    top: 200px;
+    z-index: 10;
+  }
+
+  /* Classification stamp */
+  .classification {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    color: var(--accent);
+    opacity: 0.6;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+  }
+
+  .classification::before {
+    content: '>';
+    margin-right: 10px;
+    opacity: 0.5;
+  }
+
+  /* App name — MASSIVE display */
+  .title-past {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 320px;
+    line-height: 0.82;
+    letter-spacing: -0.02em;
+    color: var(--fg);
+    opacity: 0.25;
+    display: block;
+  }
+
+  .title-comma {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 320px;
+    line-height: 0.82;
+    color: var(--accent);
+    opacity: 0.35;
+    margin-left: -10px;
+  }
+
+  .title-live {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 400px;
+    line-height: 0.85;
+    letter-spacing: -0.01em;
+    color: var(--accent);
+    display: block;
+    margin-top: -20px;
+    text-shadow:
+      0 0 120px rgba(255, 60, 40, 0.15),
+      0 0 60px rgba(255, 60, 40, 0.08);
+  }
+
+  /* Tagline */
+  .tagline {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    font-weight: 400;
+    color: var(--fg);
+    opacity: 0.25;
+    margin-top: 50px;
+    letter-spacing: 0.08em;
+  }
+
+  .tagline::before {
+    content: '>';
+    margin-right: 12px;
+    color: var(--accent);
+    opacity: 0.4;
+  }
+
+  /* ═══ CONTENT: Right-side dispatch metadata ═══ */
+  .dispatch-meta {
+    position: absolute;
+    right: 200px;
+    top: 220px;
+    text-align: right;
+    z-index: 10;
+  }
+
+  .meta-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    color: var(--fg);
+    opacity: 0.12;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .meta-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 0.05em;
+    color: var(--fg);
+    opacity: 0.08;
+    line-height: 1;
+    margin-bottom: 30px;
+  }
+
+  /* ═══ CONTENT: Watermark ghost text — fills dead space ═══ */
+  .watermark {
+    position: absolute;
+    right: -60px;
+    top: 500px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 580px;
+    line-height: 0.85;
+    letter-spacing: 0.02em;
+    color: var(--fg);
+    opacity: 0.015;
+    transform: rotate(-90deg);
+    transform-origin: right top;
+    white-space: nowrap;
+    z-index: 1;
+  }
+
+  /* ═══ CONTENT: Dispatch log entries — bottom left ═══ */
+  .dispatch-log {
+    position: absolute;
+    left: 190px;
+    bottom: 220px;
+    z-index: 10;
+  }
+
+  .log-entry {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--fg);
+    opacity: 0.15;
+    line-height: 2.2;
+    letter-spacing: 0.04em;
+  }
+
+  .log-entry::before {
+    content: '>';
+    margin-right: 8px;
+    color: var(--accent);
+    opacity: 0.35;
+  }
+
+  .log-entry .redacted-inline {
+    background: var(--redacted);
+    padding: 1px 8px;
+    margin: 0 3px;
+  }
+
+  .log-entry.accent-line {
+    color: var(--accent);
+    opacity: 0.2;
+  }
+
+  /* ═══ CONTENT: Corner marks — tactical reference ═══ */
+  .corner-tl {
+    position: absolute;
+    top: 60px;
+    left: 60px;
+    z-index: 10;
+  }
+
+  .corner-mark {
+    width: 24px;
+    height: 24px;
+    border-top: 1px solid rgba(255, 60, 40, 0.2);
+    border-left: 1px solid rgba(255, 60, 40, 0.2);
+  }
+
+  .corner-tr {
+    position: absolute;
+    top: 60px;
+    right: 60px;
+    z-index: 10;
+  }
+
+  .corner-tr .corner-mark {
+    border-top: 1px solid rgba(255, 60, 40, 0.2);
+    border-left: none;
+    border-right: 1px solid rgba(255, 60, 40, 0.2);
+  }
+
+  .corner-bl {
+    position: absolute;
+    bottom: 60px;
+    left: 60px;
+    z-index: 10;
+  }
+
+  .corner-bl .corner-mark {
+    border-top: none;
+    border-left: 1px solid rgba(255, 60, 40, 0.12);
+    border-bottom: 1px solid rgba(255, 60, 40, 0.12);
+  }
+
+  .corner-br {
+    position: absolute;
+    bottom: 60px;
+    right: 60px;
+    z-index: 10;
+  }
+
+  .corner-br .corner-mark {
+    border: none;
+    border-right: 1px solid rgba(255, 60, 40, 0.12);
+    border-bottom: 1px solid rgba(255, 60, 40, 0.12);
+  }
+
+  /* ═══ CONTENT: Top-right classification badge ═══ */
+  .classification-badge {
+    position: absolute;
+    top: 62px;
+    right: 100px;
+    z-index: 10;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    color: var(--accent);
+    opacity: 0.18;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 60, 40, 0.1);
+    padding: 6px 16px;
+  }
+
+  /* ═══ CONTENT: Horizontal stripe cluster — top right area ═══ */
+  .stripe-cluster {
+    position: absolute;
+    top: 130px;
+    right: 200px;
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+  }
+
+  .stripe {
+    width: 2px;
+    height: 20px;
+    background: var(--accent);
+  }
+
+  .stripe:nth-child(1) { opacity: 0.3; height: 14px; }
+  .stripe:nth-child(2) { opacity: 0.2; height: 20px; }
+  .stripe:nth-child(3) { opacity: 0.35; height: 10px; }
+  .stripe:nth-child(4) { opacity: 0.15; height: 24px; }
+  .stripe:nth-child(5) { opacity: 0.25; height: 16px; }
+  .stripe:nth-child(6) { opacity: 0.1; height: 22px; }
+  .stripe:nth-child(7) { opacity: 0.3; height: 12px; }
+
+  /* ═══ CONTENT: Signal waveform — mid right ═══ */
+  .waveform {
+    position: absolute;
+    right: 200px;
+    top: 700px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    z-index: 10;
+  }
+
+  .wave-bar {
+    width: 3px;
+    background: var(--accent);
+    opacity: 0.12;
+  }
+
+  /* ═══ CONTENT: Coordinate marks on dispatch margin ═══ */
+  .margin-tick {
+    position: absolute;
+    left: 120px;
+    width: 18px;
+    height: 1px;
+    background: rgba(255, 60, 40, 0.1);
+    z-index: 10;
+  }
+
+  .margin-tick-label {
+    position: absolute;
+    left: 80px;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--fg);
+    opacity: 0.06;
+    letter-spacing: 0.1em;
+    transform: translateY(-4px);
+    z-index: 10;
+  }
+
+  /* ═══ CONTENT: Redacted block — declassified document ═══ */
+  .redacted-block {
+    position: absolute;
+    right: 440px;
+    top: 880px;
+    z-index: 10;
+  }
+
+  .redacted-line {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--fg);
+    opacity: 0.08;
+    line-height: 2;
+    letter-spacing: 0.05em;
+  }
+
+  .redacted-line .blacked {
+    background: rgba(232, 224, 216, 0.06);
+    color: transparent;
+    padding: 1px 0;
+    user-select: none;
+  }
+
+  /* ═══ CONTENT: Year stamps scattered ═══ */
+  .year-stamp {
+    position: absolute;
+    font-family: 'Bebas Neue', sans-serif;
+    color: var(--fg);
+    opacity: 0.03;
+    z-index: 2;
+  }
+
+  .year-1453 {
+    font-size: 180px;
+    right: 680px;
+    top: 380px;
+    letter-spacing: 0.08em;
+  }
+
+  .year-1969 {
+    font-size: 120px;
+    right: 160px;
+    bottom: 440px;
+    letter-spacing: 0.12em;
+  }
+
+  .year-1206 {
+    font-size: 100px;
+    left: 900px;
+    top: 140px;
+    letter-spacing: 0.1em;
+    opacity: 0.02;
+  }
+
+  /* ═══ CONTENT: Horizontal signal line ═══ */
+  .signal-line {
+    position: absolute;
+    left: 190px;
+    top: 790px;
+    width: 260px;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      var(--accent) 0%,
+      rgba(255, 60, 40, 0.3) 20%,
+      rgba(255, 60, 40, 0.05) 60%,
+      transparent 100%
+    );
+    opacity: 0.4;
+    z-index: 10;
+  }
+
+  /* Signal dot at origin */
+  .signal-dot {
+    position: absolute;
+    left: 186px;
+    top: 787px;
+    width: 7px;
+    height: 7px;
+    background: var(--accent);
+    opacity: 0.5;
+    z-index: 11;
+  }
+
+  /* ═══ CONTENT: Bottom right — stack/tech whisper ═══ */
+  .stack-whisper {
+    position: absolute;
+    right: 200px;
+    bottom: 80px;
+    text-align: right;
+    z-index: 10;
+  }
+
+  .stack-line {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--fg);
+    opacity: 0.08;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    line-height: 2.4;
+  }
+
+  /* ═══ CONTENT: Crosshair element ═══ */
+  .crosshair {
+    position: absolute;
+    left: 1300px;
+    top: 600px;
+    width: 60px;
+    height: 60px;
+    z-index: 10;
+  }
+
+  .crosshair::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 60, 40, 0.08);
+  }
+
+  .crosshair::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 60, 40, 0.08);
+  }
+
+  .crosshair-ring {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 60, 40, 0.06);
+    border-radius: 50%;
+  }
+
+  /* ═══ CONTENT: Transmission frequency bars — bottom center ═══ */
+  .freq-bars {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    z-index: 10;
+    opacity: 0.06;
+  }
+
+  .freq-bar {
+    width: 2px;
+    background: var(--fg);
+  }
+
+  /* ═══ CONTENT: Document number — top left ═══ */
+  .doc-number {
+    position: absolute;
+    top: 70px;
+    left: 190px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--fg);
+    opacity: 0.08;
+    z-index: 10;
+  }
+
+  /* ═══ CONTENT: Accent bar — left edge structural ═══ */
+  .accent-bar {
+    position: absolute;
+    left: 170px;
+    top: 280px;
+    width: 6px;
+    height: 380px;
+    background: linear-gradient(
+      to bottom,
+      var(--accent) 0%,
+      rgba(255, 60, 40, 0.4) 40%,
+      rgba(255, 60, 40, 0.1) 80%,
+      transparent 100%
+    );
+    opacity: 0.25;
+    z-index: 10;
+  }
+
+  /* ═══ CONTENT: Ghost coordinates — scattered ═══ */
+  .ghost-coord {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--fg);
+    opacity: 0.04;
+    letter-spacing: 0.15em;
+    z-index: 3;
+  }
+
+  .gc-1 { top: 480px; right: 320px; }
+  .gc-2 { top: 1050px; left: 600px; }
+  .gc-3 { top: 300px; right: 700px; }
+
+  /* ═══ MORE DECOR: Dashed horizontal lines ═══ */
+  .dashed-line {
+    position: absolute;
+    height: 1px;
+    z-index: 3;
+    border: none;
+    border-top: 1px dashed rgba(255, 255, 255, 0.03);
+  }
+
+  .dl-1 { top: 440px; left: 190px; width: 600px; }
+  .dl-2 { top: 960px; left: 400px; width: 900px; border-top-color: rgba(255, 60, 40, 0.03); }
+  .dl-3 { top: 1240px; left: 190px; width: 400px; }
+
+  /* ═══ MORE DECOR: Dot grid cluster ═══ */
+  .dot-grid {
+    position: absolute;
+    display: grid;
+    z-index: 3;
+  }
+
+  .dot-grid-1 {
+    top: 920px;
+    right: 280px;
+    grid-template-columns: repeat(8, 12px);
+    grid-template-rows: repeat(6, 12px);
+  }
+
+  .dot-grid-2 {
+    top: 180px;
+    left: 1100px;
+    grid-template-columns: repeat(5, 14px);
+    grid-template-rows: repeat(4, 14px);
+  }
+
+  .dot {
+    width: 2px;
+    height: 2px;
+    background: var(--fg);
+    opacity: 0.04;
+    border-radius: 50%;
+    justify-self: center;
+    align-self: center;
+  }
+
+  .dot.accent-dot {
+    background: var(--accent);
+    opacity: 0.08;
+    width: 3px;
+    height: 3px;
+  }
+
+  /* ═══ MORE DECOR: Arc / compass element ═══ */
+  .arc-element {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border: 1px solid rgba(255, 60, 40, 0.04);
+    border-radius: 50%;
+    z-index: 3;
+  }
+
+  .arc-1 {
+    top: 360px;
+    right: 500px;
+    width: 160px;
+    height: 160px;
+    border-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .arc-2 {
+    bottom: 300px;
+    left: 700px;
+    width: 240px;
+    height: 240px;
+    border-color: rgba(255, 60, 40, 0.025);
+    clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);
+  }
+
+  .arc-3 {
+    top: 100px;
+    right: 900px;
+    width: 80px;
+    height: 80px;
+    border-color: rgba(255, 255, 255, 0.025);
+  }
+
+  /* ═══ MORE DECOR: Compass rose ═══ */
+  .compass {
+    position: absolute;
+    right: 620px;
+    bottom: 320px;
+    width: 90px;
+    height: 90px;
+    z-index: 3;
+  }
+
+  .compass::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .compass::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .compass-ring {
+    position: absolute;
+    inset: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.025);
+    border-radius: 50%;
+  }
+
+  .compass-n {
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Space Mono', monospace;
+    font-size: 7px;
+    color: var(--accent);
+    opacity: 0.1;
+    letter-spacing: 0.2em;
+  }
+
+  /* ═══ MORE DECOR: Data stream lines ═══ */
+  .data-stream {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--fg);
+    opacity: 0.025;
+    letter-spacing: 0.4em;
+    white-space: nowrap;
+    z-index: 2;
+  }
+
+  .ds-1 { top: 1100px; left: 190px; }
+  .ds-2 { top: 1130px; left: 190px; }
+  .ds-3 { top: 540px; right: 200px; text-align: right; }
+
+  /* ═══ MORE DECOR: Diagonal slash marks ═══ */
+  .slash-marks {
+    position: absolute;
+    display: flex;
+    gap: 6px;
+    z-index: 3;
+  }
+
+  .slash {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    transform: rotate(30deg);
+  }
+
+  .sm-1 { top: 850px; left: 300px; }
+  .sm-2 { bottom: 400px; right: 160px; }
+
+  /* ═══ MORE DECOR: Bracket markers ═══ */
+  .bracket-mark {
+    position: absolute;
+    font-family: 'Bebas Neue', sans-serif;
+    color: var(--accent);
+    z-index: 3;
+  }
+
+  .bm-left {
+    top: 260px;
+    left: 160px;
+    font-size: 160px;
+    opacity: 0.04;
+    line-height: 1;
+  }
+
+  .bm-right {
+    bottom: 440px;
+    right: 180px;
+    font-size: 120px;
+    opacity: 0.03;
+    line-height: 1;
+  }
+
+  /* ═══ MORE DECOR: Horizontal notch scale ═══ */
+  .notch-scale {
+    position: absolute;
+    display: flex;
+    align-items: flex-end;
+    gap: 0;
+    z-index: 3;
+  }
+
+  .notch {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  .notch-scale-1 {
+    top: 160px;
+    left: 600px;
+  }
+
+  /* ═══ MORE DECOR: Vertical text labels ═══ */
+  .vertical-label {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    color: var(--fg);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    z-index: 3;
+  }
+
+  .vl-1 {
+    right: 80px;
+    top: 400px;
+    opacity: 0.04;
+  }
+
+  .vl-2 {
+    left: 60px;
+    bottom: 300px;
+    opacity: 0.03;
+    color: var(--accent);
+  }
+
+  /* ═══ MORE DECOR: Small cross marks (map markers) ═══ */
+  .cross-mark {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    z-index: 3;
+  }
+
+  .cross-mark::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 60, 40, 0.08);
+  }
+
+  .cross-mark::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 60, 40, 0.08);
+  }
+
+  .cm-1 { top: 620px; left: 800px; }
+  .cm-2 { top: 340px; right: 400px; }
+  .cm-3 { bottom: 500px; left: 500px; }
+  .cm-4 { top: 200px; right: 600px; }
+  .cm-5 { bottom: 280px; right: 700px; }
+
+  /* ═══ MORE DECOR: Era glyphs — tiny iconic marks ═══ */
+  .era-glyph {
+    position: absolute;
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: var(--fg);
+    z-index: 3;
+  }
+
+  .eg-1 {
+    top: 520px;
+    right: 480px;
+    font-size: 36px;
+    opacity: 0.03;
+  }
+
+  .eg-2 {
+    bottom: 350px;
+    left: 380px;
+    font-size: 28px;
+    opacity: 0.025;
+  }
+
+  .eg-3 {
+    top: 760px;
+    right: 700px;
+    font-size: 24px;
+    opacity: 0.02;
+  }
+
+  /* ═══ MORE DECOR: Signal interference bands ═══ */
+  .interference {
+    position: absolute;
+    height: 2px;
+    z-index: 4;
+    opacity: 0.04;
+  }
+
+  .if-1 {
+    top: 580px;
+    left: 0;
+    right: 0;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      transparent 30%,
+      rgba(255, 60, 40, 0.3) 31%,
+      rgba(255, 60, 40, 0.1) 33%,
+      transparent 34%,
+      transparent 60%,
+      rgba(255, 255, 255, 0.1) 61%,
+      transparent 63%,
+      transparent 100%
+    );
+  }
+
+  .if-2 {
+    top: 1050px;
+    left: 0;
+    right: 0;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      transparent 45%,
+      rgba(255, 60, 40, 0.15) 46%,
+      transparent 48%,
+      transparent 100%
+    );
+  }
+
+  /* ═══ MORE DECOR: Faint horizontal rules for document feel ═══ */
+  .doc-rule {
+    position: absolute;
+    left: 160px;
+    right: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.012);
+    z-index: 2;
+  }
+
+  /* ═══ MORE DECOR: Timestamp watermarks ═══ */
+  .timestamp-ghost {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--fg);
+    opacity: 0.03;
+    letter-spacing: 0.15em;
+    z-index: 3;
+  }
+
+  .ts-1 { top: 160px; right: 500px; }
+  .ts-2 { bottom: 160px; left: 800px; }
+
+  /* ═══ MORE DECOR: Dashed vertical connector ═══ */
+  .vertical-connector {
+    position: absolute;
+    width: 1px;
+    border-left: 1px dashed rgba(255, 60, 40, 0.04);
+    z-index: 3;
+  }
+
+  .vc-1 {
+    left: 1300px;
+    top: 660px;
+    height: 200px;
+  }
+
+  .vc-2 {
+    right: 400px;
+    top: 200px;
+    height: 120px;
+    border-left-color: rgba(255, 255, 255, 0.02);
+  }
+
+</style>
+</head>
+<body>
+
+  <!-- Atmospheric layers -->
+  <div class="glow-primary"></div>
+  <div class="glow-secondary"></div>
+  <div class="grid-pattern"></div>
+  <div class="scanlines"></div>
+  <div class="grain"></div>
+  <div class="vignette"></div>
+
+  <!-- Structural lines -->
+  <div class="dispatch-margin"></div>
+  <div class="dispatch-margin-2"></div>
+  <div class="rule-top"></div>
+  <div class="rule-bottom"></div>
+  <div class="accent-bar"></div>
+
+  <!-- Corner marks -->
+  <div class="corner-tl"><div class="corner-mark"></div></div>
+  <div class="corner-tr"><div class="corner-mark"></div></div>
+  <div class="corner-bl"><div class="corner-mark"></div></div>
+  <div class="corner-br"><div class="corner-mark"></div></div>
+
+  <!-- Classification badge -->
+  <div class="classification-badge">declassified</div>
+
+  <!-- Document number -->
+  <div class="doc-number">DOC-PLV-2026-0314</div>
+
+  <!-- Stripe cluster -->
+  <div class="stripe-cluster">
+    <div class="stripe"></div>
+    <div class="stripe"></div>
+    <div class="stripe"></div>
+    <div class="stripe"></div>
+    <div class="stripe"></div>
+    <div class="stripe"></div>
+    <div class="stripe"></div>
+  </div>
+
+  <!-- Margin ticks with labels -->
+  <div class="margin-tick" style="top: 300px;"></div>
+  <div class="margin-tick-label" style="top: 300px;">001</div>
+  <div class="margin-tick" style="top: 500px;"></div>
+  <div class="margin-tick-label" style="top: 500px;">002</div>
+  <div class="margin-tick" style="top: 700px;"></div>
+  <div class="margin-tick-label" style="top: 700px;">003</div>
+  <div class="margin-tick" style="top: 900px;"></div>
+  <div class="margin-tick-label" style="top: 900px;">004</div>
+  <div class="margin-tick" style="top: 1100px;"></div>
+  <div class="margin-tick-label" style="top: 1100px;">005</div>
+  <div class="margin-tick" style="top: 1300px;"></div>
+  <div class="margin-tick-label" style="top: 1300px;">006</div>
+
+  <!-- Main title block -->
+  <div class="content">
+    <div class="classification">incoming transmission</div>
+    <span class="title-past">Past</span><span class="title-comma">,</span>
+    <span class="title-live">LIVE</span>
+    <div class="tagline">the past is speaking. are you?</div>
+  </div>
+
+  <!-- Signal line + dot -->
+  <div class="signal-line"></div>
+  <div class="signal-dot"></div>
+
+  <!-- Right-side metadata -->
+  <div class="dispatch-meta">
+    <div class="meta-label">signal origin</div>
+    <div class="meta-value">GEMINI</div>
+    <div class="meta-label">modality</div>
+    <div class="meta-value">VOICE</div>
+    <div class="meta-label">status</div>
+    <div class="meta-value" style="color: var(--accent); opacity: 0.15;">LIVE</div>
+  </div>
+
+  <!-- Waveform -->
+  <div class="waveform">
+    <div class="wave-bar" style="height: 8px;"></div>
+    <div class="wave-bar" style="height: 16px;"></div>
+    <div class="wave-bar" style="height: 28px;"></div>
+    <div class="wave-bar" style="height: 44px;"></div>
+    <div class="wave-bar" style="height: 56px;"></div>
+    <div class="wave-bar" style="height: 48px;"></div>
+    <div class="wave-bar" style="height: 64px;"></div>
+    <div class="wave-bar" style="height: 52px;"></div>
+    <div class="wave-bar" style="height: 36px;"></div>
+    <div class="wave-bar" style="height: 58px;"></div>
+    <div class="wave-bar" style="height: 42px;"></div>
+    <div class="wave-bar" style="height: 20px;"></div>
+    <div class="wave-bar" style="height: 34px;"></div>
+    <div class="wave-bar" style="height: 50px;"></div>
+    <div class="wave-bar" style="height: 38px;"></div>
+    <div class="wave-bar" style="height: 24px;"></div>
+    <div class="wave-bar" style="height: 12px;"></div>
+    <div class="wave-bar" style="height: 30px;"></div>
+    <div class="wave-bar" style="height: 46px;"></div>
+    <div class="wave-bar" style="height: 18px;"></div>
+    <div class="wave-bar" style="height: 40px;"></div>
+    <div class="wave-bar" style="height: 54px;"></div>
+    <div class="wave-bar" style="height: 22px;"></div>
+    <div class="wave-bar" style="height: 10px;"></div>
+  </div>
+
+  <!-- Crosshair -->
+  <div class="crosshair">
+    <div class="crosshair-ring"></div>
+  </div>
+
+  <!-- Year stamps -->
+  <div class="year-stamp year-1453">1453</div>
+  <div class="year-stamp year-1969">1969</div>
+  <div class="year-stamp year-1206">1206</div>
+
+  <!-- Ghost coordinates -->
+  <div class="ghost-coord gc-1">41.0082°N 28.9784°E</div>
+  <div class="ghost-coord gc-2">47.9184°N 106.9177°E</div>
+  <div class="ghost-coord gc-3">28.5721°N 80.6480°W</div>
+
+  <!-- Watermark -->
+  <div class="watermark">TRANSMISSION</div>
+
+  <!-- Redacted document block -->
+  <div class="redacted-block">
+    <div class="redacted-line">the subject demonstrated <span class="blacked">exceptional strategic</span> reasoning</div>
+    <div class="redacted-line">under conditions of <span class="blacked">extreme temporal displacement</span></div>
+    <div class="redacted-line">advisor status: <span class="blacked">survived the fall</span></div>
+    <div class="redacted-line">recommendation: <span class="blacked">deploy to next era</span></div>
+  </div>
+
+  <!-- Dispatch log -->
+  <div class="dispatch-log">
+    <div class="log-entry">location: constantinople</div>
+    <div class="log-entry">year: 1453</div>
+    <div class="log-entry">status: <span class="redacted-inline">walls breached</span></div>
+    <div class="log-entry accent-line">channel open</div>
+    <div class="log-entry">advisor: <span class="redacted-inline">[REDACTED]</span></div>
+    <div class="log-entry">the emperor is waiting</div>
+  </div>
+
+  <!-- Frequency bars -->
+  <div class="freq-bars">
+    <div class="freq-bar" style="height: 6px;"></div>
+    <div class="freq-bar" style="height: 14px;"></div>
+    <div class="freq-bar" style="height: 22px;"></div>
+    <div class="freq-bar" style="height: 10px;"></div>
+    <div class="freq-bar" style="height: 30px;"></div>
+    <div class="freq-bar" style="height: 18px;"></div>
+    <div class="freq-bar" style="height: 8px;"></div>
+    <div class="freq-bar" style="height: 26px;"></div>
+    <div class="freq-bar" style="height: 12px;"></div>
+    <div class="freq-bar" style="height: 34px;"></div>
+    <div class="freq-bar" style="height: 16px;"></div>
+    <div class="freq-bar" style="height: 4px;"></div>
+    <div class="freq-bar" style="height: 20px;"></div>
+    <div class="freq-bar" style="height: 28px;"></div>
+    <div class="freq-bar" style="height: 8px;"></div>
+    <div class="freq-bar" style="height: 24px;"></div>
+    <div class="freq-bar" style="height: 14px;"></div>
+    <div class="freq-bar" style="height: 32px;"></div>
+    <div class="freq-bar" style="height: 10px;"></div>
+    <div class="freq-bar" style="height: 18px;"></div>
+    <div class="freq-bar" style="height: 6px;"></div>
+    <div class="freq-bar" style="height: 22px;"></div>
+    <div class="freq-bar" style="height: 36px;"></div>
+    <div class="freq-bar" style="height: 12px;"></div>
+    <div class="freq-bar" style="height: 26px;"></div>
+    <div class="freq-bar" style="height: 8px;"></div>
+    <div class="freq-bar" style="height: 16px;"></div>
+    <div class="freq-bar" style="height: 30px;"></div>
+    <div class="freq-bar" style="height: 20px;"></div>
+    <div class="freq-bar" style="height: 4px;"></div>
+  </div>
+
+  <!-- Stack whisper -->
+  <div class="stack-whisper">
+    <div class="stack-line">astro + svelte + gemini live</div>
+    <div class="stack-line">cloudflare workers + cloud run</div>
+    <div class="stack-line">voice-first time travel</div>
+  </div>
+
+  <!-- Dashed lines -->
+  <div class="dashed-line dl-1"></div>
+  <div class="dashed-line dl-2"></div>
+  <div class="dashed-line dl-3"></div>
+
+  <!-- Dot grid clusters -->
+  <div class="dot-grid dot-grid-1">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div>
+  </div>
+
+  <div class="dot-grid dot-grid-2">
+    <div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div>
+    <div class="dot accent-dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot accent-dot"></div><div class="dot"></div>
+  </div>
+
+  <!-- Arcs -->
+  <div class="arc-element arc-1"></div>
+  <div class="arc-element arc-2"></div>
+  <div class="arc-element arc-3"></div>
+
+  <!-- Compass rose -->
+  <div class="compass">
+    <div class="compass-ring"></div>
+    <div class="compass-n">N</div>
+  </div>
+
+  <!-- Data streams -->
+  <div class="data-stream ds-1">01001000 01101001 01110011 01110100 01101111 01110010 01111001</div>
+  <div class="data-stream ds-2">11010100 01110010 01100001 01101110 01110011 01101101 01101001</div>
+  <div class="data-stream ds-3">PCM 24KHZ MONO 16BIT LE</div>
+
+  <!-- Slash marks -->
+  <div class="slash-marks sm-1">
+    <div class="slash"></div><div class="slash"></div><div class="slash"></div><div class="slash"></div><div class="slash"></div>
+  </div>
+  <div class="slash-marks sm-2">
+    <div class="slash"></div><div class="slash"></div><div class="slash"></div><div class="slash"></div><div class="slash"></div><div class="slash"></div><div class="slash"></div>
+  </div>
+
+  <!-- Bracket marks -->
+  <div class="bracket-mark bm-left">[</div>
+  <div class="bracket-mark bm-right">]</div>
+
+  <!-- Notch scale -->
+  <div class="notch-scale notch-scale-1">
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:10px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:14px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:10px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:14px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+    <div class="notch" style="height:10px;margin-right:8px"></div>
+    <div class="notch" style="height:6px;margin-right:8px"></div>
+  </div>
+
+  <!-- Vertical labels -->
+  <div class="vertical-label vl-1">ARCHIVE</div>
+  <div class="vertical-label vl-2">SIGNAL</div>
+
+  <!-- Cross marks (map markers) -->
+  <div class="cross-mark cm-1"></div>
+  <div class="cross-mark cm-2"></div>
+  <div class="cross-mark cm-3"></div>
+  <div class="cross-mark cm-4"></div>
+  <div class="cross-mark cm-5"></div>
+
+  <!-- Era glyphs -->
+  <div class="era-glyph eg-1">&Sigma;</div>
+  <div class="era-glyph eg-2">&Omega;</div>
+  <div class="era-glyph eg-3">&Delta;</div>
+
+  <!-- Signal interference bands -->
+  <div class="interference if-1"></div>
+  <div class="interference if-2"></div>
+
+  <!-- Document rules (faint horizontal lines for paper feel) -->
+  <div class="doc-rule" style="top: 340px;"></div>
+  <div class="doc-rule" style="top: 380px;"></div>
+  <div class="doc-rule" style="top: 420px;"></div>
+  <div class="doc-rule" style="top: 460px;"></div>
+  <div class="doc-rule" style="top: 500px;"></div>
+  <div class="doc-rule" style="top: 540px;"></div>
+  <div class="doc-rule" style="top: 580px;"></div>
+  <div class="doc-rule" style="top: 620px;"></div>
+  <div class="doc-rule" style="top: 660px;"></div>
+  <div class="doc-rule" style="top: 700px;"></div>
+  <div class="doc-rule" style="top: 740px;"></div>
+  <div class="doc-rule" style="top: 780px;"></div>
+
+  <!-- Timestamp ghosts -->
+  <div class="timestamp-ghost ts-1">2026-03-14T08:00:00Z</div>
+  <div class="timestamp-ghost ts-2">1453-05-29T04:00:00Z</div>
+
+  <!-- Vertical connectors -->
+  <div class="vertical-connector vc-1"></div>
+  <div class="vertical-connector vc-2"></div>
+
+</body>
+</html>
