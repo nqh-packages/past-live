@@ -35,7 +35,7 @@
 </script>
 
 <a
-  href={`/session?scenario=${scenario.id}&mic=1&cam=1`}
+  href={`/session?scenario=${scenario.id}&mic=1`}
   onclick={handleClick}
   class="group block relative border border-border rounded-sm bg-background px-5 py-4 hover:border-accent/20 transition-colors"
   aria-label="Accept briefing: {scenario.headline} — {scenario.role} in {scenario.location}"

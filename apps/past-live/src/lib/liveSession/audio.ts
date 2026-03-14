@@ -4,6 +4,8 @@
  * @exports - startMic, stopMic, queueAudio, clearAudioQueue, setAudioCallbacks, preWarmAudioContext
  */
 
+import { $micLevel as micLevel } from '../../stores/liveSession';
+
 // ─── Callback injection (avoids circular import with client.ts) ───────────────
 
 type SendAudioFn = (base64: string) => void;
@@ -61,6 +63,13 @@ export async function startMic(): Promise<void> {
 
   micProcessor.onaudioprocess = (e: AudioProcessingEvent) => {
     const inputData = e.inputBuffer.getChannelData(0);
+
+    // RMS amplitude — amplified 5× for visible range at normal speech levels
+    let sum = 0;
+    for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
+    const rms = Math.sqrt(sum / inputData.length);
+    micLevel.set(Math.min(1, rms * 5));
+
     const pcm16 = floatToPCM16(inputData);
     _sendAudio(pcm16ToBase64(pcm16));
   };
@@ -85,6 +94,7 @@ export function stopMic(): void {
     micContext = null;
   }
 
+  micLevel.set(0);
   _sendAudioEnd();
 }
 

@@ -56,6 +56,17 @@
   }
 
   const paletteColors = $derived(preview?.colorPalette?.slice(0, 5) ?? []);
+
+  /** True when a full 5-color story palette is available and all values are valid OKLCH. */
+  const hasStoryPalette = $derived(
+    paletteColors.length >= 5 && paletteColors.every(c => safeOklch(c)),
+  );
+
+  // Semantic color aliases — derived inline style values (empty string = no inline style applied)
+  const sBg = $derived(hasStoryPalette ? safeOklch(paletteColors[0]) : '');
+  const sAccent = $derived(hasStoryPalette ? safeOklch(paletteColors[2]) : '');
+  const sFg = $derived(hasStoryPalette ? safeOklch(paletteColors[3]) : '');
+  const sMuted = $derived(hasStoryPalette ? safeOklch(paletteColors[4]) : '');
 </script>
 
 {#if isLoading}
@@ -188,35 +199,29 @@
     </div>
 
   {:else}
-    <!-- Preview fields -->
+    <!-- Preview fields — text styled with story palette when available -->
     <div class="space-y-2 font-mono text-[11px]">
       <div class="flex gap-2">
-        <span class="text-foreground/25 flex-shrink-0">you are:</span>
-        <span class="text-foreground/70">{preview.userRole}</span>
+        <span
+          class="text-foreground/25 flex-shrink-0"
+          style={sMuted ? `color: ${sMuted}` : ''}
+        >you are:</span>
+        <span
+          class="text-foreground/70"
+          style={sFg ? `color: ${sFg}` : ''}
+        >{preview.userRole}</span>
       </div>
       <div class="mt-3">
-        <div class="text-foreground/25 mb-1">stakes:</div>
-        <p class="text-foreground/60 leading-relaxed">{preview.context}</p>
+        <div
+          class="text-foreground/25 mb-1"
+          style={sMuted ? `color: ${sMuted}` : ''}
+        >stakes:</div>
+        <p
+          class="text-foreground/60 leading-relaxed"
+          style={sFg ? `color: ${sFg}` : ''}
+        >{preview.context}</p>
       </div>
     </div>
-
-    <!-- Color palette preview -->
-    {#if paletteColors.length > 0}
-      <div class="flex gap-1.5 items-center" aria-label="Era color palette">
-        {#each paletteColors as color, i (i)}
-          {@const safe = safeOklch(color)}
-          {#if safe}
-            <div
-              class="w-5 h-5 rounded-sm border border-white/5"
-              style="background: {safe}"
-              title="Era color {i + 1}"
-              aria-hidden="true"
-            ></div>
-          {/if}
-        {/each}
-        <span class="font-mono text-[9px] text-foreground/20 ml-1">era palette</span>
-      </div>
-    {/if}
 
     <!-- Checkboxes -->
     <div class="space-y-2.5" role="group" aria-label="Session options">
@@ -228,17 +233,23 @@
           class="w-4 h-4 accent-[color:var(--color-accent)] cursor-pointer"
           aria-label="Auto-activate microphone at session start"
         />
-        <span class="font-mono text-[11px] text-foreground/60 select-none">auto-activate mic</span>
+        <span class="font-mono text-[11px] text-foreground/60 select-none" style={sFg ? `color: ${sFg}; opacity: 0.7` : ''}>auto-activate mic</span>
       </label>
-      <label class="flex items-center gap-3 cursor-pointer min-h-11 py-1">
+      <label class="flex items-start gap-3 cursor-pointer min-h-11 py-1">
         <input
           type="checkbox"
           checked={camEnabled}
           onchange={(e) => oncamChange((e.target as HTMLInputElement).checked)}
-          class="w-4 h-4 accent-[color:var(--color-accent)] cursor-pointer"
-          aria-label="Enable camera during session"
+          class="w-4 h-4 accent-[color:var(--color-accent)] cursor-pointer mt-0.5"
+          aria-label="Enable camera during session (optional)"
         />
-        <span class="font-mono text-[11px] text-foreground/60 select-none">enable camera</span>
+        <span class="font-mono text-[11px] select-none" style={sFg ? `color: ${sFg}; opacity: 0.7` : 'color: color-mix(in oklch, var(--color-foreground) 60%, transparent)'}>
+          enable camera
+          <span
+            class="block text-[10px] text-foreground/30 mt-0.5 leading-snug"
+            style={sMuted ? `color: ${sMuted}` : ''}
+          >optional: let the character react to your expressions</span>
+        </span>
       </label>
     </div>
 
@@ -247,7 +258,10 @@
       <button
         type="button"
         onclick={onstartEdit}
-        class="min-h-11 font-mono text-[11px] tracking-[0.1em] uppercase border border-border/50 text-foreground/40 hover:text-foreground/60 hover:border-border px-4 py-2.5 rounded-sm transition-colors"
+        class="min-h-11 font-mono text-[11px] tracking-[0.1em] uppercase border px-4 py-2.5 rounded-sm transition-colors"
+        style={sAccent
+          ? `border-color: ${sAccent}; color: ${sAccent}; opacity: 0.6`
+          : 'border-color: color-mix(in oklch, var(--color-border) 50%, transparent); color: color-mix(in oklch, var(--color-foreground) 40%, transparent)'}
         aria-label="Edit topic or add notes"
       >
         [ edit ]
@@ -255,7 +269,10 @@
       <button
         type="button"
         onclick={onenterSession}
-        class="flex-1 min-h-11 font-mono text-[11px] tracking-[0.12em] uppercase border border-accent text-accent hover:bg-accent/10 px-4 py-2.5 rounded-sm transition-colors shadow-[0_0_16px_rgba(255,60,40,0.1)]"
+        class="flex-1 min-h-11 font-mono text-[11px] tracking-[0.12em] uppercase border px-4 py-2.5 rounded-sm transition-colors"
+        style={sAccent && sBg
+          ? `background: ${sAccent}; color: ${sBg}; border-color: ${sAccent}`
+          : 'border-color: var(--color-accent); color: var(--color-accent)'}
         aria-label="Enter the session now"
       >
         [ enter session ]

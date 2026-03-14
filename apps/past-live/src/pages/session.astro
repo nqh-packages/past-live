@@ -78,6 +78,14 @@ const dispatchLabel = scenarioId
     <header class="w-full mb-4">
       <div class="relative pl-[72px]">
         <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
+        <!-- Avatar badge: small circular character portrait, hydrated from sessionStorage -->
+        <div
+          class="absolute top-0 left-0 w-8 h-8 rounded-full border border-accent/20 overflow-hidden bg-surface"
+          id="avatar-badge"
+          aria-label="Character avatar"
+        >
+          <span class="flex items-center justify-center h-full text-[8px] text-foreground/20" id="avatar-placeholder"></span>
+        </div>
         <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
           &gt; session active
         </div>
@@ -92,34 +100,55 @@ const dispatchLabel = scenarioId
       <SessionTimer client:load />
     </div>
 
-    <!-- Character portrait — populated from sessionStorage preview data -->
+    <!-- Scene banner (16:9) — populated from sessionStorage sceneImage -->
     <div
-      class="w-32 h-32 sm:w-36 sm:h-36 rounded-sm border border-border bg-surface flex items-center justify-center mb-5 self-center overflow-hidden"
-      aria-label="Character portrait"
-      id="portrait-container"
+      class="w-full aspect-video rounded-sm border border-border bg-surface overflow-hidden mb-4"
+      aria-label="Scene image"
+      id="scene-banner"
     >
-      <span class="font-mono text-[10px] text-foreground/20 tracking-wider" id="portrait-placeholder">[ portrait ]</span>
+      <span
+        class="flex items-center justify-center h-full font-mono text-[10px] text-foreground/20 tracking-wider"
+        id="scene-placeholder"
+      >[ scene ]</span>
     </div>
 
-    <!-- Portrait hydration from sessionStorage -->
+    <!-- Scene + avatar hydration from sessionStorage -->
     <script is:inline>
       (function() {
         try {
           var raw = sessionStorage.getItem('past-live:preview');
           if (!raw) return;
           var data = JSON.parse(raw);
+
+          // 1. Scene banner — full-width 16:9 landscape image
+          if (data && data.sceneImage) {
+            var banner = document.getElementById('scene-banner');
+            var scenePlaceholder = document.getElementById('scene-placeholder');
+            if (banner && scenePlaceholder) {
+              var sceneImg = document.createElement('img');
+              sceneImg.src = 'data:image/jpeg;base64,' + data.sceneImage;
+              sceneImg.alt = (data.historicalSetting || 'Historical scene');
+              sceneImg.className = 'w-full h-full object-cover';
+              sceneImg.width = 768;
+              sceneImg.height = 432;
+              scenePlaceholder.remove();
+              banner.appendChild(sceneImg);
+            }
+          }
+
+          // 2. Avatar badge — small circular portrait injected into the header
           if (data && data.avatar) {
-            var container = document.getElementById('portrait-container');
-            var placeholder = document.getElementById('portrait-placeholder');
-            if (container && placeholder) {
-              var img = document.createElement('img');
-              img.src = 'data:image/jpeg;base64,' + data.avatar;
-              img.alt = (data.characterName || 'Character') + ' portrait';
-              img.className = 'w-full h-full object-cover';
-              img.width = 144;
-              img.height = 144;
-              placeholder.remove();
-              container.appendChild(img);
+            var badge = document.getElementById('avatar-badge');
+            var avatarPlaceholder = document.getElementById('avatar-placeholder');
+            if (badge && avatarPlaceholder) {
+              var avatarImg = document.createElement('img');
+              avatarImg.src = 'data:image/jpeg;base64,' + data.avatar;
+              avatarImg.alt = (data.characterName || 'Character') + ' portrait';
+              avatarImg.className = 'w-full h-full object-cover';
+              avatarImg.width = 32;
+              avatarImg.height = 32;
+              avatarPlaceholder.remove();
+              badge.appendChild(avatarImg);
             }
           }
         } catch(_) {}

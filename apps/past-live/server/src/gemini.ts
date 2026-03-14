@@ -11,6 +11,7 @@ import {
   StartSensitivity,
   EndSensitivity,
 } from '@google/genai';
+import { logger } from './logger.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,10 @@ const ai = new GoogleGenAI({
 export async function createGeminiSession(
   config: GeminiSessionConfig,
 ): Promise<GeminiSession> {
+  logger.debug({ event: 'gemini_connecting', model: MODEL, voice: VOICE }, 'Connecting to Gemini Live API');
+
+  let audioChunkCount = 0;
+
   const session = await ai.live.connect({
     model: MODEL,
     config: {
@@ -81,6 +86,9 @@ export async function createGeminiSession(
       contextWindowCompression: { slidingWindow: {} },
     },
     callbacks: {
+      onopen: () => {
+        logger.info({ event: 'gemini_connected', model: MODEL, voice: VOICE }, 'Gemini Live session connected');
+      },
       onmessage: (response) => {
         const content = response.serverContent;
         if (!content) return;
@@ -89,6 +97,13 @@ export async function createGeminiSession(
         if (content.modelTurn?.parts) {
           for (const part of content.modelTurn.parts) {
             if (part.inlineData?.data) {
+              audioChunkCount++;
+              if (audioChunkCount % 10 === 0) {
+                logger.debug(
+                  { event: 'audio_output_chunks', count: audioChunkCount },
+                  'Audio output chunks received from Gemini',
+                );
+              }
               config.onAudio(part.inlineData.data);
             }
           }
@@ -96,23 +111,42 @@ export async function createGeminiSession(
 
         // Input transcription (what the student said)
         if (content.inputTranscription?.text) {
+          logger.debug(
+            { event: 'input_transcription', text: content.inputTranscription.text },
+            'Input transcription received',
+          );
           config.onInputTranscription(content.inputTranscription.text);
         }
 
         // Output transcription (what the agent said)
         if (content.outputTranscription?.text) {
+          logger.debug(
+            { event: 'output_transcription', text: content.outputTranscription.text },
+            'Output transcription received',
+          );
           config.onOutputTranscription(content.outputTranscription.text);
         }
 
         // Interruption signal — browser should clear playback queue
         if (content.interrupted) {
+          logger.debug({ event: 'gemini_interrupted' }, 'Gemini interrupted signal received');
           config.onInterrupted();
         }
       },
       onerror: (error) => {
+        logger.error(
+          {
+            event: 'gemini_error',
+            code: 'GEMINI_SESSION_001',
+            err: error,
+            action: 'Check GEMINI_API_KEY validity and Gemini API status',
+          },
+          'Gemini Live session error',
+        );
         config.onError(error instanceof Error ? error : new Error(String(error)));
       },
       onclose: () => {
+        logger.info({ event: 'gemini_session_close', totalAudioChunks: audioChunkCount }, 'Gemini Live session closed');
         config.onClose();
       },
     },

@@ -3,7 +3,7 @@
  * @why - Single source of truth for session status, transcripts, chat log, and preview data
  * @exports - $status, $outputTranscript, $inputTranscript, $error, $sessionId, $scenarioId,
  *            $topic, $summary, $isActive, $isConnecting, $sessionStartTime,
- *            $messages, $isSpeaking, $micEnabled, $characterName, $previewData,
+ *            $messages, $isSpeaking, $micEnabled, $micLevel, $characterName, $previewData,
  *            addMessage, appendToLastMessage, replaceLastMessage, resetSession,
  *            appendOutputTranscript, appendInputTranscript
  */
@@ -41,6 +41,13 @@ export const $isSpeaking = atom<boolean>(false);
 
 /** True when mic is unmuted and streaming */
 export const $micEnabled = atom<boolean>(false);
+
+/**
+ * Mic audio level — RMS amplitude of the current mic input buffer, 0–1 range.
+ * Updated per ScriptProcessorNode buffer (~256ms at 16kHz). Set to 0 when mic stops.
+ * Used by MicButton.svelte to render a pulsing volume ring.
+ */
+export const $micLevel = atom<number>(0);
 
 // ─── Character name ────────────────────────────────────────────────────────────
 
@@ -124,6 +131,7 @@ export function resetSession(): void {
   $messages.set([]);
   $isSpeaking.set(false);
   $micEnabled.set(false);
+  $micLevel.set(0);
   $characterName.set('NARRATOR');
   $previewData.set(null);
   $error.set('');

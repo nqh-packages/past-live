@@ -10,6 +10,8 @@
     $error as error,
     $isSpeaking as isSpeaking,
     $micEnabled as micEnabled,
+    $characterName as characterName,
+    PRESET_CHARACTER_NAMES,
   } from '../stores/liveSession';
   import {
     connectSession,
@@ -56,6 +58,31 @@
   // ─── Pre-warm AudioContext on mount (user gesture happened at [ENTER SESSION]) ──
 
   preWarmAudioContext();
+
+  // ─── Resolve character name from sessionStorage (Nano Stores don't survive navigation) ──
+  //
+  // Priority order:
+  //   1. sessionStorage 'past-live:preview' → characterName (set by SessionPreview.svelte)
+  //   2. PRESET_CHARACTER_NAMES[scenarioId] (direct URL access to a known scenario)
+  //   3. 'NARRATOR' (default — open topic without preview)
+
+  (function resolveCharacterName() {
+    try {
+      const raw = sessionStorage.getItem('past-live:preview');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { characterName?: string };
+        if (parsed.characterName) {
+          characterName.set(parsed.characterName);
+          return;
+        }
+      }
+    } catch { /* malformed JSON — fall through */ }
+
+    if (scenarioId && PRESET_CHARACTER_NAMES[scenarioId]) {
+      characterName.set(PRESET_CHARACTER_NAMES[scenarioId]);
+    }
+    // else: keep default 'NARRATOR'
+  })();
 
   // ─── Connect WebSocket immediately (runs in background during countdown) ──
 

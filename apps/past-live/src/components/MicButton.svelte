@@ -6,7 +6,11 @@
    */
   import { onDestroy } from 'svelte';
   import { createWebHaptics } from 'web-haptics/svelte';
-  import { $isActive as isActive, $micEnabled as micEnabled } from '../stores/liveSession';
+  import {
+    $isActive as isActive,
+    $micEnabled as micEnabled,
+    $micLevel as micLevelStore,
+  } from '../stores/liveSession';
   import { startMic, stopMic } from '../lib/liveSession/audio';
 
   const haptic = createWebHaptics();
@@ -53,6 +57,19 @@
 </script>
 
 <div class="flex flex-col items-center gap-2">
+  <div class="relative">
+    <!--
+      Volume ring — scales with mic input RMS level.
+      Respects prefers-reduced-motion: scale is suppressed, only opacity varies.
+    -->
+    {#if micState === 'active'}
+      <div
+        class="absolute inset-0 rounded-full border-2 border-accent pointer-events-none motion-reduce:scale-100"
+        style="transform: scale({1 + $micLevelStore * 0.3}); opacity: {0.3 + $micLevelStore * 0.7}"
+        aria-hidden="true"
+      ></div>
+    {/if}
+
   <button
     type="button"
     onclick={handleToggle}
@@ -108,6 +125,7 @@
       </svg>
     {/if}
   </button>
+  </div>
 
   <span class="font-mono text-[10px] text-foreground/30 tracking-[0.08em]">
     {stateLabels[micState]}

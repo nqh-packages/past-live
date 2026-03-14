@@ -40,12 +40,14 @@ const ERA_STYLES: Record<string, EraStyle> = {
  *
  * @param scenarioId - Known scenario ID (optional). Falls back to generic if not found.
  * @param topic - Free-form topic used when no matching scenario exists.
+ * @param historicalSetting - Specific location/era from Flash metadata (e.g. "Constantinople, 1453").
+ *   Improves open-topic scene accuracy when passed from the Flash JSON result.
  * @returns Image generation prompt string.
  *
  * @pitfall - Result is NOT a portrait. Scene art only — wide establishing shot.
  *   Character avatars use a separate prompt from character-avatar.ts.
  */
-export function buildSceneImagePrompt(scenarioId?: string, topic?: string): string {
+export function buildSceneImagePrompt(scenarioId?: string, topic?: string, historicalSetting?: string): string {
   const era = scenarioId ? ERA_STYLES[scenarioId] : undefined;
 
   if (era) {
@@ -60,12 +62,16 @@ export function buildSceneImagePrompt(scenarioId?: string, topic?: string): stri
     ].join(' ');
   }
 
-  // Generic fallback for open topics
-  const topicHint = topic ? `The historical topic is: "${topic}".` : 'A significant historical moment.';
+  // Generic fallback for open topics — use historicalSetting when available for better accuracy
+  const locationHint = historicalSetting
+    ? `The historical setting is: "${historicalSetting}".`
+    : topic
+      ? `The historical topic is: "${topic}".`
+      : 'A significant historical moment.';
 
   return [
     `Create an immersive historical scene image in a painterly documentary style.`,
-    topicHint,
+    locationHint,
     'Show the environment, atmosphere, and era — NOT a character portrait.',
     'Dramatic lighting. Rich textures. Cinematic wide shot.',
     'No text, no borders, no watermarks.',

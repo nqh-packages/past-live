@@ -1,6 +1,8 @@
 /**
- * @what - POST /session-preview — 3 parallel Gemini calls: JSON metadata + scene image + character avatar
- * @why - Generates preview overlay content before the student enters a session
+ * @what - POST /session-preview — Flash JSON first, then 2-way parallel image calls
+ * @why - Avatar prompt requires characterName from the Flash JSON result; running all
+ *        3 calls in parallel gave the avatar generator "A historical figure" as the
+ *        only name hint, causing empty/garbage images for open topics.
  * @exports - sessionPreviewRoute
  */
 
@@ -159,7 +161,7 @@ function resolveEffectiveTopic(request: SessionPreviewRequest): string {
   return preset?.topic ?? 'a historical moment';
 }
 
-async function fetchMetadata(topic: string): Promise<PreviewMetadata> {
+export async function fetchMetadata(topic: string): Promise<PreviewMetadata> {
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: FLASH_MODEL,
@@ -233,30 +235,29 @@ sessionPreviewRoute.post(
 
     const effectiveTopic = resolveEffectiveTopic(body);
 
-    // ── 3 parallel Gemini calls ───────────────────────────────────────────────
-    // Promise.allSettled — partial failure returns successful results + fallbacks.
-
-    const [metaResult, sceneResult, avatarResult] = await Promise.allSettled([
-      fetchMetadata(effectiveTopic),
-      fetchImage(buildSceneImagePrompt(scenarioId, effectiveTopic)),
-      fetchImage(buildCharacterAvatarPrompt(scenarioId, effectiveTopic)),
-    ]);
-
-    // ── Resolve metadata ──────────────────────────────────────────────────────
+    // ── Step 1: Flash JSON first — avatar image needs characterName ───────────
+    // Running all 3 in parallel left the avatar generator with no character name
+    // for open topics, producing empty/garbage results (ISSUE-015).
 
     let metadata: PreviewMetadata;
     let metadataFailed = false;
 
-    if (metaResult.status === 'fulfilled') {
-      metadata = metaResult.value;
-    } else {
+    try {
+      metadata = await fetchMetadata(effectiveTopic);
+    } catch (err) {
       metadataFailed = true;
-      console.error('[session-preview] metadata call failed:', metaResult.reason);
+      console.error('[session-preview] metadata call failed:', err);
       // Use preset fallback if scenarioId known, else generic
       metadata = (scenarioId && PRESET_FALLBACKS[scenarioId]) ?? GENERIC_FALLBACK;
     }
 
-    // ── Resolve images ────────────────────────────────────────────────────────
+    // ── Step 2: Scene image + avatar image in parallel ────────────────────────
+    // Both prompts now have full metadata context; partial failure is still graceful.
+
+    const [sceneResult, avatarResult] = await Promise.allSettled([
+      fetchImage(buildSceneImagePrompt(scenarioId, metadata.topic, metadata.historicalSetting)),
+      fetchImage(buildCharacterAvatarPrompt(scenarioId, metadata.topic, metadata.characterName)),
+    ]);
 
     const sceneImage = sceneResult.status === 'fulfilled' ? sceneResult.value : null;
     const avatarImage = avatarResult.status === 'fulfilled' ? avatarResult.value : null;

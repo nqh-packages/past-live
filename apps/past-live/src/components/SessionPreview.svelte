@@ -47,7 +47,7 @@
   let editTopic = $state('');
   let editNotes = $state('');
   let micEnabled = $state(true);
-  let camEnabled = $state(true);
+  let camEnabled = $state(false);
 
   // ─── Event listeners ───────────────────────────────────────────────────────
 
@@ -199,6 +199,18 @@
     await fetchPreview(previewTopic);
   }
 
+  // ─── Story palette (applied to panel when 5 valid OKLCH values present) ──────
+
+  const OKLCH_RE = /^oklch\(\s*[\d.]+%?\s+[\d.]+\s+[\d.]+\s*\)$/;
+  function safeOklch(val: string): string {
+    return OKLCH_RE.test(val.trim()) ? val : '';
+  }
+
+  const panelPalette = $derived(preview?.colorPalette?.slice(0, 5) ?? []);
+  const hasStoryPalette = $derived(panelPalette.length >= 5 && panelPalette.every(c => safeOklch(c)));
+  const panelBg = $derived(hasStoryPalette ? safeOklch(panelPalette[1]) : '');
+  const panelBorder = $derived(hasStoryPalette ? safeOklch(panelPalette[4]) : '');
+
   // ─── Enter session ─────────────────────────────────────────────────────────
 
   function enterSession() {
@@ -226,13 +238,22 @@
     aria-modal="true"
     aria-label="Session briefing preview"
   >
-    <!-- Panel -->
-    <div class="w-full max-w-sm bg-surface border border-border rounded-sm max-h-[90dvh] overflow-y-auto">
+    <!-- Panel — inherits story palette when available -->
+    <div
+      class="w-full max-w-sm bg-surface border border-border rounded-sm max-h-[90dvh] overflow-y-auto"
+      style={hasStoryPalette ? `background: ${panelBg}; border-color: ${panelBorder}` : ''}
+    >
 
       <!-- Header -->
-      <div class="relative pl-[60px] pr-4 pt-5 pb-4 border-b border-border/50">
+      <div
+        class="relative pl-[60px] pr-4 pt-5 pb-4 border-b border-border/50"
+        style={hasStoryPalette ? `border-color: ${panelBorder}` : ''}
+      >
         <div class="absolute top-0 left-[48px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
-        <div class="font-mono text-[10px] text-accent tracking-[0.15em] uppercase">
+        <div
+          class="font-mono text-[10px] tracking-[0.15em] uppercase"
+          style={hasStoryPalette ? `color: ${safeOklch(panelPalette[2])}` : 'color: var(--color-accent)'}
+        >
           &gt; session briefing
         </div>
         <button
