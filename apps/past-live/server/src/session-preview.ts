@@ -8,28 +8,17 @@
 
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
-import { GoogleGenAI } from '@google/genai';
 import { buildSceneImagePrompt } from './prompts/scene-image.js';
 import { buildCharacterAvatarPrompt } from './prompts/character-avatar.js';
 import { VOICE_SELECTION_PROMPT } from './behavioral-rules.js';
 import { logger } from './logger.js';
+import { getAI } from './ai-client.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FLASH_MODEL = 'gemini-3-flash-preview';
 const IMAGE_MODEL = 'gemini-3.1-flash-image-preview';
 const MAX_BODY_SIZE = 2 * 1024 * 1024; // 2 MB
-
-// ─── Client ───────────────────────────────────────────────────────────────────
-
-let _ai: GoogleGenAI | null = null;
-
-function getAI(): GoogleGenAI {
-  if (!_ai) {
-    _ai = new GoogleGenAI({ apiKey: process.env['GEMINI_API_KEY'] ?? '' });
-  }
-  return _ai;
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

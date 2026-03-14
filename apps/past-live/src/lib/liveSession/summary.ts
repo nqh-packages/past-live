@@ -1,10 +1,19 @@
 /**
  * @what - Builds and persists the session summary artifact for /summary page
- * @why - Deterministic MVP summary: pulls facts from scenario metadata, stores in sessionStorage
- * @exports - createSummaryArtifact, loadSummaryArtifact
+ * @why - Deterministic MVP summary: pulls facts from scenario metadata, stores in sessionStorage.
+ *        Phase 2 adds createSummaryFromServer for Gemini-generated post-call summaries.
+ * @exports - createSummaryArtifact, createSummaryFromServer, loadSummaryArtifact, formatDuration
  */
 
-import { $summary, $inputTranscript, type SummaryArtifact } from '../../stores/liveSession';
+import {
+  $summary,
+  $inputTranscript,
+  $scenarioId,
+  $topic,
+  $characterName,
+  $previewData,
+  type SummaryArtifact,
+} from '../../stores/liveSession';
 
 // ─── Scenario metadata (inlined to avoid server/browser boundary crossing) ────
 // Source of truth: server/src/scenarios.ts — keep in sync if scenario data changes
@@ -97,6 +106,54 @@ export function createSummaryArtifact({ scenarioId, topic, durationMs }: CreateS
     actualOutcome: meta?.actualOutcome ?? 'Session completed. Review the transcript for key moments.',
     yourCall: lastSentence,
     relatedScenarios: meta?.relatedScenarios ?? ['constantinople-1453', 'moon-landing-1969'],
+  };
+
+  $summary.set(artifact);
+  persistSummary(artifact);
+}
+
+// ─── Phase 2: server-generated summary ────────────────────────────────────────
+
+interface ServerSummary {
+  keyFacts: string[];
+  outcomeComparison: string;
+  characterMessage: string;
+  suggestedCalls: { name: string; era: string; hook: string }[];
+}
+
+/**
+ * Maps a Gemini post-call summary (sent by the backend in the `ended` message)
+ * into a SummaryArtifact and persists it. Preferred over createSummaryArtifact
+ * when the server provides real transcript-based data.
+ *
+ * @inference - Falls back to createSummaryArtifact when the backend omits `summary`.
+ *   Both paths produce a SummaryArtifact — downstream components are unaware of the source.
+ */
+export function createSummaryFromServer({
+  serverSummary,
+  durationMs,
+}: {
+  serverSummary: ServerSummary;
+  durationMs: number;
+}): void {
+  const rawTranscript = $inputTranscript.get().trim();
+  const lastSentence = rawTranscript
+    ? rawTranscript.split(/[.!?]/).filter(Boolean).pop()?.trim() ?? rawTranscript.slice(-120)
+    : '(no spoken input captured)';
+
+  const artifact: SummaryArtifact = {
+    scenarioId: $scenarioId.get(),
+    topic: $topic.get(),
+    scenarioTitle: $previewData.get()?.topic ?? $topic.get() ?? 'Call ended',
+    role: $characterName.get() || $previewData.get()?.characterName || 'Unknown',
+    durationMs,
+    summaryFacts: serverSummary.keyFacts,
+    actualOutcome: serverSummary.outcomeComparison,
+    yourCall: lastSentence,
+    relatedScenarios: [],
+    characterMessage: serverSummary.characterMessage,
+    suggestedCalls: serverSummary.suggestedCalls,
+    outcomeComparison: serverSummary.outcomeComparison,
   };
 
   $summary.set(artifact);

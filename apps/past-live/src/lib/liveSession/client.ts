@@ -20,7 +20,7 @@ import {
   replaceLastMessage,
 } from '../../stores/liveSession';
 import { queueAudio, clearAudioQueue } from './audio';
-import { createSummaryArtifact } from './summary';
+import { createSummaryArtifact, createSummaryFromServer } from './summary';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +29,10 @@ export interface ConnectConfig {
   topic?: string;
   voiceName?: string;
   backendWsUrl: string;
+  /** Phase 2: passed to backend for post-call summary prompt context */
+  characterName?: string;
+  /** Phase 2: passed to backend for post-call summary prompt context */
+  historicalSetting?: string;
 }
 
 // ─── Module state ─────────────────────────────────────────────────────────────
@@ -64,9 +68,15 @@ export function connectSession(config: ConnectConfig): void {
   }
 
   ws.onopen = () => {
-    const startMsg = config.scenarioId
+    const baseMsg = config.scenarioId
       ? { type: 'start', scenarioId: config.scenarioId, voiceName: config.voiceName }
       : { type: 'start', topic: config.topic, voiceName: config.voiceName };
+    // Phase 2: include preview context for post-call summary generation
+    const startMsg = {
+      ...baseMsg,
+      ...(config.characterName ? { characterName: config.characterName } : {}),
+      ...(config.historicalSetting ? { historicalSetting: config.historicalSetting } : {}),
+    };
     ws!.send(JSON.stringify(startMsg));
   };
 
@@ -173,11 +183,26 @@ function handleServerMessage(msg: Record<string, unknown>): void {
       clearAudioQueue();
       $activeChoices.set(null);
       const durationMs = Date.now() - $sessionStartTime.get();
-      createSummaryArtifact({
-        scenarioId: $scenarioId.get(),
-        topic: $topic.get(),
-        durationMs,
-      });
+
+      // Phase 2: prefer server-generated summary when present
+      const serverSummary = msg['summary'] as {
+        keyFacts: string[];
+        outcomeComparison: string;
+        characterMessage: string;
+        suggestedCalls: { name: string; era: string; hook: string }[];
+      } | undefined;
+
+      if (serverSummary) {
+        createSummaryFromServer({ serverSummary, durationMs });
+      } else {
+        // Phase 1 fallback: hardcoded scenario metadata
+        createSummaryArtifact({
+          scenarioId: $scenarioId.get(),
+          topic: $topic.get(),
+          durationMs,
+        });
+      }
+
       $status.set('ended');
       break;
     }

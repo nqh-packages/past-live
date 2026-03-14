@@ -2,10 +2,15 @@
   /**
    * @what - Call log island — reads session artifact from store or sessionStorage
    * @why - Renders the post-call summary: who, duration, key facts, what happened, next calls
+   *        Phase 2: uses server-generated characterMessage, outcomeComparison, suggestedCalls
    */
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
+  import { createWebHaptics } from 'web-haptics/svelte';
   import { loadSummaryArtifact, formatDuration } from '../lib/liveSession/summary';
   import type { SummaryArtifact } from '../stores/liveSession';
+
+  const haptic = createWebHaptics();
+  onDestroy(() => haptic.destroy());
 
   const FALLBACK_SUMMARY: SummaryArtifact = {
     scenarioId: 'constantinople-1453',
@@ -89,7 +94,7 @@
         <span class="text-foreground/40 ml-2">{summary.yourCall}</span>
       </p>
       <p class="text-foreground/40 leading-relaxed pl-4 border-l border-accent/15">
-        {summary.actualOutcome}
+        {summary.outcomeComparison ?? summary.actualOutcome}
       </p>
     </div>
   </section>
@@ -98,18 +103,36 @@
   <section class="mb-12">
     <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">CHARACTER'S MESSAGE</h2>
     <p class="font-mono text-sm text-foreground/40 italic leading-relaxed pl-4 border-l border-accent/15">
-      "Thank you, stranger. You asked the right questions."
+      "{summary.characterMessage ?? 'Thank you, stranger. You asked the right questions.'}"
     </p>
   </section>
 
-  <!-- Call Someone Else -->
-  {#if relatedLinks.length > 0}
+  <!-- Call Someone Else: Phase 2 dynamic suggestions take precedence over preset links -->
+  {#if summary.suggestedCalls && summary.suggestedCalls.length > 0}
+    <section class="mb-12">
+      <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">CALL SOMEONE ELSE</h2>
+      <div class="flex flex-col gap-3">
+        {#each summary.suggestedCalls as call (call.name)}
+          <a
+            href="/app"
+            onclick={() => haptic.trigger('light')}
+            class="border border-border rounded-sm px-4 py-3 font-mono text-sm text-foreground/30 hover:text-foreground hover:border-accent/20 transition-colors"
+            aria-label="Call {call.name}, {call.era}"
+          >
+            <span class="text-foreground/60">&gt; {call.name}</span> · {call.era}
+            <br /><span class="text-foreground/20 text-xs">{call.hook}</span>
+          </a>
+        {/each}
+      </div>
+    </section>
+  {:else if relatedLinks.length > 0}
     <section class="mb-12">
       <h2 class="font-display text-2xl text-foreground tracking-wider mb-5">CALL SOMEONE ELSE</h2>
       <div class="flex flex-col gap-3">
         {#each relatedLinks as s (s.id)}
           <a
             href={`/session?scenario=${s.id}`}
+            onclick={() => haptic.trigger('light')}
             class="border border-border rounded-sm px-4 py-3 font-mono text-sm text-foreground/30 hover:text-foreground hover:border-accent/20 transition-colors"
             aria-label="Call {s.person}, {s.era}"
           >

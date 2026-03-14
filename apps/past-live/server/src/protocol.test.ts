@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseClientMessage, serializeServerMessage } from './protocol.js';
 import type { ClientMessage, ServerMessage } from './protocol.js';
+import type { PostCallSummary } from './post-call-summary.js';
 
 // ─── parseClientMessage ───────────────────────────────────────────────────────
 
@@ -284,5 +285,123 @@ describe('serializeServerMessage', () => {
     });
     const parsed = JSON.parse(result) as ServerMessage;
     expect(parsed.type).toBe('choices');
+  });
+
+  describe('ended message with optional summary', () => {
+    it('serializes ended message without summary (backward compat)', () => {
+      const result = serializeServerMessage({ type: 'ended', reason: 'story_complete' });
+      const parsed = JSON.parse(result) as Record<string, unknown>;
+      expect(parsed['type']).toBe('ended');
+      expect(parsed['reason']).toBe('story_complete');
+      // summary key should not be present when not provided
+      expect('summary' in parsed ? parsed['summary'] : undefined).toBeUndefined();
+    });
+
+    it('serializes ended message with summary object', () => {
+      const summary: PostCallSummary = {
+        keyFacts: ['The harbor chain held the strait.', 'Seventy ships crossed overland.'],
+        outcomeComparison: 'The city fell on May 29, 1453.',
+        characterMessage: 'You asked the right questions, stranger.',
+        suggestedCalls: [
+          { name: 'Mehmed II', era: 'Ottoman Empire, 1453', hook: 'I built the cannons that broke your walls.' },
+        ],
+      };
+
+      const result = serializeServerMessage({ type: 'ended', reason: 'story_complete', summary });
+      const parsed = JSON.parse(result) as Record<string, unknown>;
+
+      expect(parsed['type']).toBe('ended');
+      expect(parsed['reason']).toBe('story_complete');
+      expect(parsed['summary']).toEqual(summary);
+    });
+
+    it('serializes ended message with all summary fields intact', () => {
+      const summary: PostCallSummary = {
+        keyFacts: ['fact one', 'fact two', 'fact three'],
+        outcomeComparison: 'Historical outcome here.',
+        characterMessage: 'Character farewell message.',
+        suggestedCalls: [
+          { name: 'Person A', era: 'Era A', hook: 'Hook A' },
+          { name: 'Person B', era: 'Era B', hook: 'Hook B' },
+          { name: 'Person C', era: 'Era C', hook: 'Hook C' },
+        ],
+      };
+
+      const result = serializeServerMessage({ type: 'ended', reason: 'timeout', summary });
+      const parsed = JSON.parse(result) as { summary: PostCallSummary };
+
+      expect(parsed.summary.keyFacts).toHaveLength(3);
+      expect(parsed.summary.suggestedCalls).toHaveLength(3);
+      expect(parsed.summary.characterMessage).toBe('Character farewell message.');
+    });
+  });
+});
+
+// ─── parseClientMessage — start with new context fields ──────────────────────
+
+describe('parseClientMessage — start with characterName and historicalSetting', () => {
+  it('parses start with characterName alongside topic', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', topic: 'French Revolution', characterName: 'ROBESPIERRE' }),
+    );
+    expect(msg.type).toBe('start');
+    expect((msg as { characterName?: string }).characterName).toBe('ROBESPIERRE');
+  });
+
+  it('parses start with historicalSetting alongside topic', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', topic: 'French Revolution', historicalSetting: 'Paris, 1789' }),
+    );
+    expect(msg.type).toBe('start');
+    expect((msg as { historicalSetting?: string }).historicalSetting).toBe('Paris, 1789');
+  });
+
+  it('parses start with both characterName and historicalSetting', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({
+        type: 'start',
+        topic: 'French Revolution',
+        characterName: 'ROBESPIERRE',
+        historicalSetting: 'Paris, 1789',
+      }),
+    );
+    expect((msg as { characterName?: string }).characterName).toBe('ROBESPIERRE');
+    expect((msg as { historicalSetting?: string }).historicalSetting).toBe('Paris, 1789');
+  });
+
+  it('parses start with characterName alongside scenarioId', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', scenarioId: 'moon', characterName: 'GENE KRANZ' }),
+    );
+    expect((msg as { characterName?: string }).characterName).toBe('GENE KRANZ');
+  });
+
+  it('parses start without characterName (backward compat)', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', topic: 'moon landing' }),
+    );
+    expect((msg as { characterName?: string }).characterName).toBeUndefined();
+  });
+
+  it('parses start without historicalSetting (backward compat)', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', topic: 'moon landing' }),
+    );
+    expect((msg as { historicalSetting?: string }).historicalSetting).toBeUndefined();
+  });
+
+  it('ignores non-string characterName field', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', topic: 'test', characterName: 42 }),
+    );
+    // Non-string values are ignored, field should be undefined
+    expect((msg as { characterName?: string }).characterName).toBeUndefined();
+  });
+
+  it('ignores non-string historicalSetting field', () => {
+    const msg = parseClientMessage(
+      JSON.stringify({ type: 'start', topic: 'test', historicalSetting: true }),
+    );
+    expect((msg as { historicalSetting?: string }).historicalSetting).toBeUndefined();
   });
 });

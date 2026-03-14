@@ -11,6 +11,7 @@ import { createNodeWebSocket } from '@hono/node-ws';
 import { createRelay } from './relay.js';
 import { extractTopicRoute } from './extract-topic.js';
 import { sessionPreviewRoute } from './session-preview.js';
+import { testSessionRoute } from './test-session.js';
 
 // ─── Startup guards ────────────────────────────────────────────────────────────
 
@@ -44,6 +45,9 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 // POST routes for home multimodal input and session preview overlay
 app.route('/', extractTopicRoute);
 app.route('/', sessionPreviewRoute);
+
+// Text-only test endpoint — no audio hardware required, for CI and dev tooling
+app.route('/', testSessionRoute);
 
 app.get(
   '/ws',

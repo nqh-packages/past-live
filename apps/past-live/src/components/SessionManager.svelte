@@ -93,7 +93,16 @@
   // ─── Connect WebSocket immediately (runs in background during calling screen) ──
 
   if (scenarioId || topic) {
-    connectSession({ scenarioId, topic, voiceName, backendWsUrl });
+    // Phase 2: pass preview context for post-call summary prompt on the backend
+    const previewCtx = previewData.get();
+    connectSession({
+      scenarioId,
+      topic,
+      voiceName,
+      backendWsUrl,
+      characterName: previewCtx?.characterName,
+      historicalSetting: previewCtx?.historicalSetting,
+    });
   }
 
   // ─── Spacebar toggles mute/unmute (only when NOT focused on text input) ───
@@ -169,7 +178,15 @@
   // ─── Retry ────────────────────────────────────────────────────────────────
 
   function retry() {
-    connectSession({ scenarioId, topic, voiceName, backendWsUrl });
+    const previewCtx = previewData.get();
+    connectSession({
+      scenarioId,
+      topic,
+      voiceName,
+      backendWsUrl,
+      characterName: previewCtx?.characterName,
+      historicalSetting: previewCtx?.historicalSetting,
+    });
   }
 
   onDestroy(() => {

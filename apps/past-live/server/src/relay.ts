@@ -9,6 +9,8 @@ import { parseClientMessage, serializeServerMessage } from './protocol.js';
 import { getScenario, buildOpenTopicPrompt } from './scenarios.js';
 import { createGeminiSession } from './gemini.js';
 import type { GeminiSession } from './gemini.js';
+import { generatePostCallSummary } from './post-call-summary.js';
+import type { PostCallSummary } from './post-call-summary.js';
 import { logger } from './logger.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -27,6 +29,14 @@ interface RelayState {
   audioCunkCount: number;
   wrapUpTimer: ReturnType<typeof setTimeout> | null;
   forceCloseTimer: ReturnType<typeof setTimeout> | null;
+  /** Accumulated character (output) transcription segments. */
+  outputTranscripts: string[];
+  /** Accumulated student (input) transcription segments. */
+  inputTranscripts: string[];
+  /** Character name resolved from scenario or start message context. */
+  characterName: string;
+  /** Historical setting resolved from scenario or start message context. */
+  historicalSetting: string;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,6 +82,10 @@ export function createRelay(ws: WSContext): void {
     audioCunkCount: 0,
     wrapUpTimer: null,
     forceCloseTimer: null,
+    outputTranscripts: [],
+    inputTranscripts: [],
+    characterName: '',
+    historicalSetting: '',
   };
 
   logger.debug({ event: 'ws_open' }, 'WebSocket connection opened');
@@ -158,12 +172,51 @@ function handleClientMessage(ws: WSContext, state: RelayState, raw: string): voi
   }
 }
 
+// ─── Summary + end helper ─────────────────────────────────────────────────────
+
+/**
+ * Generates a post-call summary and sends `ended` to the browser.
+ * Fire-and-forget from the onToolCall context — errors fall back gracefully.
+ */
+async function endSessionWithSummary(
+  ws: WSContext,
+  state: RelayState,
+  reason: string,
+): Promise<void> {
+  let summary: PostCallSummary | undefined;
+  try {
+    summary = await generatePostCallSummary({
+      characterName: state.characterName,
+      historicalSetting: state.historicalSetting,
+      inputTranscript: state.inputTranscripts.join(' '),
+      outputTranscript: state.outputTranscripts.join(' '),
+    });
+    logger.info(
+      { event: 'summary_generated', sessionId: state.sessionId },
+      'Post-call summary generated',
+    );
+  } catch (err) {
+    logger.error(
+      {
+        event: 'summary_failed',
+        code: 'RELAY_SUMMARY_001',
+        err,
+        sessionId: state.sessionId,
+        action: 'Falling back to ended without summary',
+      },
+      'Post-call summary generation failed',
+    );
+  }
+
+  sendToClient(ws, { type: 'ended', reason, summary });
+}
+
 // ─── Start handler ────────────────────────────────────────────────────────────
 
 async function handleStart(
   ws: WSContext,
   state: RelayState,
-  msg: { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string },
+  msg: { type: 'start'; scenarioId?: string; topic?: string; voiceName?: string; studentName?: string; characterName?: string; historicalSetting?: string },
 ): Promise<void> {
   // Guard against double-start
   if (state.started) return;
@@ -181,19 +234,19 @@ async function handleStart(
   if (msg.scenarioId) {
     const scenario = getScenario(msg.scenarioId);
     if (!scenario) {
-      logger.warn(
-        { event: 'unknown_scenario', code: 'RELAY_SCENARIO_001', scenarioId: msg.scenarioId, action: 'Check scenarios.ts for valid IDs' },
-        'Unknown scenarioId',
-      );
+      logger.warn({ event: 'unknown_scenario', code: 'RELAY_SCENARIO_001', scenarioId: msg.scenarioId, action: 'Check scenarios.ts for valid IDs' }, 'Unknown scenarioId');
       sendToClient(ws, { type: 'error', message: `Unknown scenarioId: ${msg.scenarioId}` });
       state.started = false;
       return;
     }
     systemPrompt = scenario.systemPrompt;
-    // Use preset voice if not overridden by the browser
     voiceName ??= scenario.voiceName;
+    state.characterName = scenario.role;
+    state.historicalSetting = `${scenario.title}, ${scenario.year}`;
   } else if (msg.topic) {
     systemPrompt = buildOpenTopicPrompt(msg.topic);
+    state.characterName = msg.characterName ?? msg.topic;
+    state.historicalSetting = msg.historicalSetting ?? msg.topic;
   } else {
     logger.warn({ event: 'start_missing_params', code: 'RELAY_START_002' }, 'start message missing scenarioId and topic');
     sendToClient(ws, { type: 'error', message: 'start requires scenarioId or topic' });
@@ -211,10 +264,12 @@ async function handleStart(
     onAudio: (data) => sendToClient(ws, { type: 'audio', data }),
     onOutputTranscription: (text) => {
       logger.debug({ event: 'output_transcription', sessionId, textLength: text.length }, 'Output transcription received');
+      state.outputTranscripts.push(text);
       sendToClient(ws, { type: 'output_transcription', text });
     },
     onInputTranscription: (text) => {
       logger.debug({ event: 'input_transcription', sessionId, textLength: text.length }, 'Input transcription received');
+      state.inputTranscripts.push(text);
       sendToClient(ws, { type: 'input_transcription', text });
     },
     onInterrupted: () => {
@@ -239,9 +294,9 @@ async function handleStart(
 
       if (name === 'end_session') {
         const reason = (args as { reason?: string }).reason ?? 'story_complete';
-        sendToClient(ws, { type: 'ended', reason });
         state.session?.close();
         clearTimers(state);
+        void endSessionWithSummary(ws, state, reason); // NON_BLOCKING — fire and forget
         return;
       }
 
@@ -267,9 +322,7 @@ async function handleStart(
 
   state.session = session;
 
-  logger.info({ event: 'gemini_session_created', sessionId, scenarioId: msg.scenarioId, topic: msg.topic, voiceName }, 'Gemini session created successfully');
-
-  // ── Safety net timers ─────────────────────────────────────────────────────
+  logger.info({ event: 'gemini_session_created', sessionId, scenarioId: msg.scenarioId, topic: msg.topic, voiceName }, 'Gemini session created');
 
   state.wrapUpTimer = setTimeout(() => {
     logger.info({ event: 'wrap_up_inject', sessionId }, 'Injecting wrap-up at 9 min');
@@ -283,10 +336,7 @@ async function handleStart(
     clearTimers(state);
   }, FORCE_CLOSE_MS);
 
-  // Trigger the model's first turn before notifying the browser
   session.sendText('The student has called you. Pick up the call.');
-
-  // Notify browser that the session is ready
   sendToClient(ws, { type: 'connected', sessionId });
 }
 

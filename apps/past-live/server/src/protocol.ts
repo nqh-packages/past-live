@@ -4,6 +4,8 @@
  * Pure functions only — no I/O, no external imports.
  */
 
+import type { PostCallSummary } from './post-call-summary.js';
+
 // ─── Client → Hono ───────────────────────────────────────────────────────────
 
 export type ClientMessage =
@@ -11,7 +13,17 @@ export type ClientMessage =
   | { type: 'text'; text: string }
   | { type: 'video'; data: string; mimeType: 'image/jpeg' }
   | { type: 'audio_end' }
-  | { type: 'start'; scenarioId?: string; topic?: string; studentName?: string; voiceName?: string };
+  | {
+      type: 'start';
+      scenarioId?: string;
+      topic?: string;
+      studentName?: string;
+      voiceName?: string;
+      /** Character name from session-preview metadata (used by relay for summary). */
+      characterName?: string;
+      /** Historical setting from session-preview metadata (used by relay for summary). */
+      historicalSetting?: string;
+    };
 
 // ─── Hono → Client ───────────────────────────────────────────────────────────
 
@@ -24,7 +36,7 @@ export type ServerMessage =
   | { type: 'speaker_switch'; speaker: 'character'; name: string }
   | { type: 'choices'; choices: { title: string; description: string }[] }
   | { type: 'error'; message: string }
-  | { type: 'ended'; reason: string };
+  | { type: 'ended'; reason: string; summary?: PostCallSummary };
 
 // ─── Derived union members ────────────────────────────────────────────────────
 
@@ -86,9 +98,11 @@ export function parseClientMessage(raw: string): ClientMessage {
       }
       const studentName = typeof obj['studentName'] === 'string' ? obj['studentName'] : undefined;
       const voiceName = typeof obj['voiceName'] === 'string' ? obj['voiceName'] : undefined;
+      const characterName = typeof obj['characterName'] === 'string' ? obj['characterName'] : undefined;
+      const historicalSetting = typeof obj['historicalSetting'] === 'string' ? obj['historicalSetting'] : undefined;
       return hasScenario
-        ? { type: 'start', scenarioId: obj['scenarioId'] as string, studentName, voiceName }
-        : { type: 'start', topic: obj['topic'] as string, studentName, voiceName };
+        ? { type: 'start', scenarioId: obj['scenarioId'] as string, studentName, voiceName, characterName, historicalSetting }
+        : { type: 'start', topic: obj['topic'] as string, studentName, voiceName, characterName, historicalSetting };
     }
   }
 }

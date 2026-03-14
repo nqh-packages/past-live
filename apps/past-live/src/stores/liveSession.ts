@@ -4,7 +4,7 @@
  * @exports - $status, $outputTranscript, $inputTranscript, $error, $sessionId, $scenarioId,
  *            $topic, $summary, $isActive, $isConnecting, $sessionStartTime,
  *            $messages, $isSpeaking, $micEnabled, $micLevel, $characterName, $previewData,
- *            $activeChoices, Choice,
+ *            $activeChoices, Choice, SummaryArtifact,
  *            addMessage, appendToLastMessage, replaceLastMessage, resetSession,
  *            appendOutputTranscript, appendInputTranscript
  */
@@ -130,6 +130,12 @@ export interface SummaryArtifact {
   actualOutcome: string;
   yourCall: string;
   relatedScenarios: string[];
+  /** Phase 2: character's farewell message from Gemini post-call summary */
+  characterMessage?: string;
+  /** Phase 2: AI-generated next-call suggestions from post-call summary */
+  suggestedCalls?: { name: string; era: string; hook: string }[];
+  /** Phase 2: narrative comparison of student's choice vs. real history */
+  outcomeComparison?: string;
 }
 
 export const $summary = atom<SummaryArtifact | null>(null);
