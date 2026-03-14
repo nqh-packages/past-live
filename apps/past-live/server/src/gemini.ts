@@ -73,9 +73,9 @@ export async function createGeminiSession(
       realtimeInputConfig: {
         automaticActivityDetection: {
           startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_LOW,
-          endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+          endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
           prefixPaddingMs: 20,
-          silenceDurationMs: 100,
+          silenceDurationMs: 500,
         },
       },
       contextWindowCompression: { slidingWindow: {} },

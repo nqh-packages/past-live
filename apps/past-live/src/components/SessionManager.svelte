@@ -96,10 +96,13 @@
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
-  // ─── Auto-mic from URL param on session active ────────────────────────────
+  // ─── Auto-mic from URL param on session active (ONE-SHOT) ──────────────────
+
+  let autoMicDone = false;
 
   $effect(() => {
-    if ($status === 'active' && mic && !$micEnabled) {
+    if ($status === 'active' && mic && !autoMicDone) {
+      autoMicDone = true;
       startMic()
         .then(() => { micEnabled.set(true); })
         .catch(() => {
@@ -130,6 +133,7 @@
   }
 
   onDestroy(() => {
+    stopMic();
     disconnect();
     window.removeEventListener('keydown', handleKeydown);
   });

@@ -144,6 +144,9 @@ async function handleStart(
 
   state.session = session;
 
+  // Trigger the model's first narration turn before notifying the browser
+  session.sendText('Begin the scene.');
+
   // Notify browser that the session is ready
   sendToClient(ws, { type: 'connected', sessionId: generateSessionId() });
 }

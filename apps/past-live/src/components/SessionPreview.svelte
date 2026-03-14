@@ -129,24 +129,27 @@
       if (!res.ok) throw new Error(`status ${res.status}`);
 
       const data = await res.json() as {
-        topic?: string; userRole?: string; characterName?: string;
-        historicalSetting?: string; year?: string; context?: string;
-        colorPalette?: string[]; sceneImage?: string; avatar?: string; error?: string;
+        metadata?: { topic?: string; userRole?: string; characterName?: string;
+          historicalSetting?: string; year?: string; context?: string;
+          colorPalette?: string[] };
+        sceneImage?: string | null; avatarImage?: string | null;
+        partial?: boolean; error?: string;
       };
 
       if (data.error) throw new Error(data.error);
-      if (!data.userRole || !data.characterName) throw new Error('incomplete preview data');
+      const meta = data.metadata;
+      if (!meta?.userRole || !meta?.characterName) throw new Error('incomplete preview data');
 
       preview = {
-        topic: data.topic ?? topic,
-        userRole: data.userRole,
-        characterName: data.characterName,
-        historicalSetting: data.historicalSetting ?? '',
-        year: data.year ?? '',
-        context: data.context ?? '',
-        colorPalette: data.colorPalette ?? [],
-        sceneImage: data.sceneImage,
-        avatar: data.avatar,
+        topic: meta.topic ?? topic,
+        userRole: meta.userRole,
+        characterName: meta.characterName,
+        historicalSetting: meta.historicalSetting ?? '',
+        year: meta.year ?? '',
+        context: meta.context ?? '',
+        colorPalette: meta.colorPalette ?? [],
+        sceneImage: data.sceneImage ?? undefined,
+        avatar: data.avatarImage ?? undefined,
       };
     } catch (err) {
       loadError = err instanceof Error ? err.message : 'preview failed';
@@ -218,7 +221,7 @@
 {#if isOpen}
   <!-- Backdrop -->
   <div
-    class="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 sm:p-6"
+    class="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6"
     role="dialog"
     aria-modal="true"
     aria-label="Session briefing preview"

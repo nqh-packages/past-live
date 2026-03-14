@@ -4,7 +4,8 @@
  * @exports - $status, $outputTranscript, $inputTranscript, $error, $sessionId, $scenarioId,
  *            $topic, $summary, $isActive, $isConnecting, $sessionStartTime,
  *            $messages, $isSpeaking, $micEnabled, $characterName, $previewData,
- *            addMessage, appendToLastMessage, resetSession, appendOutputTranscript, appendInputTranscript
+ *            addMessage, appendToLastMessage, replaceLastMessage, resetSession,
+ *            appendOutputTranscript, appendInputTranscript
  */
 
 import { atom, computed } from 'nanostores';
@@ -172,4 +173,21 @@ export function appendToLastMessage(text: string): void {
     ...msgs.slice(0, -1),
     { sender: last.sender, text: `${last.text} ${text}` },
   ]);
+}
+
+/**
+ * Replaces the text of the last message if it has the same sender, otherwise appends a new one.
+ * Use for cumulative transcription events where each event contains the full text so far.
+ *
+ * @inference - Gemini input_transcription sends cumulative (not delta) text per event.
+ *   Calling addMessage would concatenate previous + current, doubling the content.
+ */
+export function replaceLastMessage(sender: string, text: string): void {
+  const msgs = $messages.get();
+  const last = msgs[msgs.length - 1];
+  if (last && last.sender === sender) {
+    $messages.set([...msgs.slice(0, -1), { sender, text }]);
+  } else {
+    $messages.set([...msgs, { sender, text }]);
+  }
 }

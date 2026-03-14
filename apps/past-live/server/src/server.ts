@@ -31,7 +31,9 @@ const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 app.use(
   '/*',
   cors({
-    origin: process.env['ALLOWED_ORIGIN']?.split(',').map((s) => s.trim()) ?? ['*'],
+    origin: process.env['ALLOWED_ORIGIN']
+      ? process.env['ALLOWED_ORIGIN'].split(',').map((s) => s.trim())
+      : '*',
   }),
 );
 

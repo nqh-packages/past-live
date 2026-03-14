@@ -67,11 +67,16 @@ Return ONLY valid JSON matching this exact schema:
   "historicalSetting": "location and era in one phrase (e.g. Constantinople, 1453)",
   "year": 1453,
   "context": "2-3 sentences. Plain language. What the situation is and what is at stake.",
-  "colorPalette": ["oklch(60% 0.18 45)", "oklch(20% 0.08 45)", "oklch(75% 0.12 45)", "oklch(90% 0.04 45)", "oklch(50% 0.15 45)"]
+  "colorPalette": ["oklch(10% 0.04 45)", "oklch(16% 0.06 45)", "oklch(65% 0.18 45)", "oklch(90% 0.04 45)", "oklch(38% 0.10 45)"]
 }
 
-colorPalette must be exactly 5 OKLCH color strings (CSS oklch() format).
-Choose colors that match the era's atmosphere (e.g. warm amber for Byzantine, cold blue for space).
+colorPalette must be exactly 5 OKLCH color strings (CSS oklch() format) matching the era's atmosphere. STRICT lightness rules:
+  [0] background: lightness 8-15% (very dark)
+  [1] surface: lightness 12-20% (dark panel)
+  [2] accent: lightness 55-75% (vibrant era color)
+  [3] foreground: lightness 85-95% (readable text)
+  [4] muted: lightness 30-45% (subtle/secondary)
+The foreground MUST have at least 7:1 contrast ratio against the background.
 No markdown. No code fences. Just the JSON object.
 `.trim();
 }

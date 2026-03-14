@@ -50,8 +50,11 @@ All decisions made by Huy during concept/research phase (2026-03-13). Do NOT re-
 | Chat log | Character-named: `> [CHARACTER_NAME]` or `> [NARRATOR]` / `> [YOU]` prefixes. NOT hardcoded "DISPATCH" | Huy: transcriptions pile up as one paragraph |
 | Countdown | Dispatch-themed client-side overlay: STANDBY → CHANNEL OPEN → INCOMING TRANSMISSION | Huy: missing countdown that prepares mental model |
 | Model speaks first | Model narrates scene setting after countdown; mic already live | Huy: default screen showed "listening" with no guidance |
-| System prompt tone | Accessible period-flavored + A/B testing via `promptVariant` param | Huy: language too academic for target audience |
-| Session preview | Overlay on home screen. 3 Gemini calls: Flash (JSON: role/setting/stakes/colors/characterName) + Image model (scene image + character avatar) | User reviews session setup before entering |
+| System prompt tone | Accessible period-flavored. A/B testing killed — ship variant B only | Huy: language too academic for target audience |
+| Explicit choices | System prompt MUST instruct model to present 2-3 concrete choices at every decision point. Global rule + per-scenario examples | Huy: "I don't get what I need to do" — open questions leave user stranded |
+| Tool calling | Gemini Live function declarations: `end_session`, `switch_speaker`, `announce_choice`. Model controls session flow | Research confirmed: Live API supports tools. Solves session ending + narrator/character tagging + choice UI |
+| Voice selection | Flash JSON picks `voiceName` from 30 available voices per character/era. Relay passes to `connect()` | Each era deserves its own voice. Voice locked at connect time |
+| Session preview | Overlay on home screen. Flash JSON first → then scene image + avatar in parallel (sequential, not 3-way parallel) | Avatar prompt needs `characterName` from Flash result |
 | Preview edit | User can modify topic + add notes; original input preserved; Flash regenerates | Example: student scans Vietnam 1975, model assumes tank gate, student wants lead-up events |
 | Preset scenarios | Always show preview overlay (pre-filled from scenario metadata) | Consistent flow |
 | Landing page | Hero + 3 feature bullets + CTA (single page for judges + users) | Research: don't separate audiences |
@@ -133,6 +136,64 @@ const session = await ai.live.connect({
   }
 });
 ```
+
+### Tool Calling (Function Declarations)
+
+Gemini Live supports function calling during live audio sessions. Model emits `toolCall` messages; relay responds with `sendToolResponse()`.
+
+```typescript
+import { Behavior, FunctionResponseScheduling } from '@google/genai';
+
+const tools = [{
+  functionDeclarations: [
+    { name: 'end_session', description: 'Story concluded. Triggers redirect to /summary.', parameters: { type: 'object', properties: { reason: { type: 'string', description: 'Why the session ended (story_complete, timeout, user_request)' } }, required: ['reason'] } },
+    { name: 'switch_speaker', description: 'Switch chat log tag between narrator and character.', parameters: { type: 'object', properties: { speaker: { type: 'string', enum: ['narrator', 'character'], description: 'Who is speaking now' } }, required: ['speaker'] } },
+    { name: 'announce_choice', description: 'Present 2-3 choices for the student to pick.', parameters: { type: 'object', properties: { choices: { type: 'array', items: { type: 'string' }, description: 'The concrete options for the student' } }, required: ['choices'] } },
+  ]
+}];
+
+// In session config:
+config: { tools, ... }
+
+// In onmessage callback:
+if (msg.toolCall) {
+  const responses = msg.toolCall.functionCalls.map(fc => {
+    if (fc.name === 'end_session') { /* send 'ended' to browser, close Gemini */ }
+    if (fc.name === 'switch_speaker') { /* forward to browser, update $characterName or NARRATOR */ }
+    if (fc.name === 'announce_choice') { /* forward choices to browser, show choice cards */ }
+    return { id: fc.id, name: fc.name, response: { result: 'ok' } };
+  });
+  session.sendToolResponse({ functionResponses: responses });
+}
+```
+
+| Tool | Purpose | Relay action |
+|------|---------|-------------|
+| `end_session` | Model decides story is done | Relay sends `{ type: 'ended' }` → browser redirects to `/summary` |
+| `switch_speaker` | Narrator ↔ character tag in chat log | Relay sends `{ type: 'speaker_switch', speaker }` → frontend updates `$characterName` |
+| `announce_choice` | Present concrete choices to student | Relay sends `{ type: 'choices', choices }` → frontend shows choice cards |
+
+**Behavior**: `NON_BLOCKING` — model keeps speaking while tool runs.
+**Scheduling**: `WHEN_IDLE` — Gemini acts on tool response after current speech finishes.
+
+### Voice Auto-Selection
+
+Flash JSON now returns `voiceName` alongside other metadata. Relay uses it at `ai.live.connect()`.
+
+| Voice | Tone | | Voice | Tone | | Voice | Tone |
+|-------|------|-|-------|------|-|-------|------|
+| Zephyr | Bright | | Kore | Firm | | Charon | Informative |
+| Fenrir | Excitable | | Leda | Youthful | | Orus | Firm |
+| Aoede | Breezy | | Callirrhoe | Easy-going | | Autonoe | Bright |
+| Enceladus | Breathy | | Iapetus | Clear | | Umbriel | Easy-going |
+| Algieba | Smooth | | Despina | Smooth | | Erinome | Clear |
+| Algenib | Gravelly | | Rasalgethi | Informative | | Laomedeia | Upbeat |
+| Achernar | Soft | | Alnilam | Firm | | Schedar | Even |
+| Gacrux | Mature | | Pulcherrima | Forward | | Achird | Friendly |
+| Zubenelgenubi | Casual | | Vindemiatrix | Gentle | | Sadachbia | Lively |
+| Sadaltager | Knowledgeable | | Sulafat | Warm | | Puck | Upbeat |
+
+**Voice is locked at connect time** — cannot switch mid-session. Flash picks the best voice for the character/era.
 
 ### Sending Input
 
@@ -271,7 +332,7 @@ Browser (Astro/Svelte)              Cloud Run (Hono/TS)
 |------|--------|------|
 | 0 | **Warm-up** — First visit: name + age → Firestore. Returning: agent-generated question from last session | Pre-session |
 | 1 | **Input** — Student provides topic via text, voice (Web Speech API), or image (camera → Gemini Flash). Multimodal | Home screen |
-| 1b | **Session Preview** — 3 parallel Gemini calls: (1) Flash JSON: role/setting/stakes/colors/characterName, (2) Image: scene image, (3) Image: character avatar. All via `Promise.all` (~2-3s). Overlay on home screen. User reviews, can EDIT topic/notes or ACCEPT | Home overlay |
+| 1b | **Session Preview** — Flash JSON first (role/setting/stakes/colors/characterName/voiceName), then scene image + avatar in parallel. Overlay on home screen. Preview card inherits story palette. User reviews, can EDIT or ACCEPT | Home overlay |
 | 1c | **Input Checkboxes** — ☑ "auto-activate mic" (pre-checked, controls whether mic starts ON) + ☑ "enable camera" (pre-checked, controls whether video is IN or NOT IN the session; unchecked = video completely off, not just muted). Voice is PRIMARY interaction | Home overlay |
 | 2 | **Enter Session** — User clicks [ENTER SESSION]. Client-side countdown overlay: STANDBY → CHANNEL OPEN → INCOMING TRANSMISSION. Meanwhile: Gemini Live API connects in background. Mic auto-activates (if checkbox checked) | Client-side + WS connect |
 | 3 | **Scene Setting** — Model speaks first. Agent narrates scenario in character voice. Mic already live — student can respond, interrupt, or revise | Live API, audio-only |
@@ -341,6 +402,29 @@ Affective dialog handles emotional modulation; prompt handles role shifts.
 | Tone flexibility | Reward theatrical play, but also accept calm/logical answers |
 
 `scenarios.ts` is the demo-critical file. The relay only carries the experience; the prompt creates it.
+
+---
+
+## Two Palette System
+
+| Palette | Name | Purpose | When applied |
+|---------|------|---------|-------------|
+| **System** | Default CSS tokens | App chrome: nav, logo, inputs, home page | Always — `global.css` `@theme {}` |
+| **Story** | Generated by Gemini Flash | Era atmosphere: session page, preview card | Per-session — inline CSS vars from OKLCH |
+
+**Rule**: Brand accent (red) stays fixed on the Past, Live logo. Everything else in session/preview inherits the story palette.
+
+### Story Palette OKLCH Constraints (enforced in Flash prompt)
+
+| Index | Role | Lightness | Example |
+|-------|------|-----------|---------|
+| 0 | Background | 8-15% | Very dark era tone |
+| 1 | Surface | 12-20% | Dark panel/card |
+| 2 | Accent | 55-75% | Vibrant era color |
+| 3 | Foreground | 85-95% | Readable text |
+| 4 | Muted | 30-45% | Subtle/secondary |
+
+**Guarantees**: 7:1+ contrast between foreground (3) and background (0). Preview card + session page both apply story palette via CSS custom properties.
 
 ---
 

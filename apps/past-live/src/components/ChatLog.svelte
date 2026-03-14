@@ -28,7 +28,7 @@
 
 <div
   use:autoScroll
-  class="min-h-[160px] max-h-[320px] overflow-y-auto border-l border-accent/10 pl-4 space-y-3 scroll-smooth"
+  class="h-full overflow-y-auto border-l border-accent/10 pl-4 space-y-3 scroll-smooth"
   role="log"
   aria-live="polite"
   aria-label="Session transcript"

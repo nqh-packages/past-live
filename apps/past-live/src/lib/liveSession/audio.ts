@@ -49,7 +49,7 @@ export async function startMic(): Promise<void> {
   if (micStream) return; // already running
 
   micStream = await navigator.mediaDevices.getUserMedia({
-    audio: { sampleRate: MIC_SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true },
+    audio: { sampleRate: MIC_SAMPLE_RATE, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
 
   micContext = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
@@ -119,6 +119,7 @@ let currentSource: AudioBufferSourceNode | null = null;
 
 function getPlaybackContext(): AudioContext {
   if (!playbackContext || playbackContext.state === 'closed') {
+    if (typeof AudioContext === 'undefined') throw new Error('AudioContext not available (SSR)');
     playbackContext = new AudioContext({ sampleRate: PLAYBACK_SAMPLE_RATE });
   }
   // Browsers suspend AudioContext until a user gesture — resume on every access
@@ -134,6 +135,7 @@ function getPlaybackContext(): AudioContext {
  * Call as early as possible in the session entry flow.
  */
 export function preWarmAudioContext(): void {
+  if (typeof AudioContext === 'undefined') return; // SSR guard
   getPlaybackContext();
 }
 

@@ -16,6 +16,7 @@ import {
   appendOutputTranscript,
   appendInputTranscript,
   addMessage,
+  replaceLastMessage,
 } from '../../stores/liveSession';
 import { queueAudio, clearAudioQueue } from './audio';
 import { createSummaryArtifact } from './summary';
@@ -142,8 +143,9 @@ function handleServerMessage(msg: Record<string, unknown>): void {
       if (typeof msg['text'] === 'string') {
         const text = msg['text'];
         appendInputTranscript(text);
-        // User messages always use 'YOU' as sender
-        addMessage('YOU', text);
+        // Gemini sends cumulative text (not deltas) — replace rather than append
+        // to avoid duplicating previously displayed content
+        replaceLastMessage('YOU', text);
       }
       break;
     }

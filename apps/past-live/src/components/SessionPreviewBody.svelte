@@ -194,10 +194,6 @@
         <span class="text-foreground/25 flex-shrink-0">you are:</span>
         <span class="text-foreground/70">{preview.userRole}</span>
       </div>
-      <div class="flex gap-2">
-        <span class="text-foreground/25 flex-shrink-0">setting:</span>
-        <span class="text-foreground/70">{preview.historicalSetting}{preview.year ? `, ${preview.year}` : ''}</span>
-      </div>
       <div class="mt-3">
         <div class="text-foreground/25 mb-1">stakes:</div>
         <p class="text-foreground/60 leading-relaxed">{preview.context}</p>
