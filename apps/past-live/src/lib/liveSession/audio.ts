@@ -28,6 +28,9 @@ let micSource: MediaStreamAudioSourceNode | null = null;
 let micProcessor: ScriptProcessorNode | null = null;
 
 export async function startMic(): Promise<void> {
+  // Warm up playback context on first user gesture (mic press counts)
+  getPlaybackContext();
+
   if (micStream) return; // already running
 
   micStream = await navigator.mediaDevices.getUserMedia({
@@ -102,6 +105,10 @@ let currentSource: AudioBufferSourceNode | null = null;
 function getPlaybackContext(): AudioContext {
   if (!playbackContext || playbackContext.state === 'closed') {
     playbackContext = new AudioContext({ sampleRate: PLAYBACK_SAMPLE_RATE });
+  }
+  // Browsers suspend AudioContext until a user gesture — resume on every access
+  if (playbackContext.state === 'suspended') {
+    playbackContext.resume().catch(() => {});
   }
   return playbackContext;
 }
