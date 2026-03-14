@@ -1,8 +1,10 @@
 <script lang="ts">
   /**
    * @what - Dispatch-style scenario card
-   * @why - Entry point for pre-built historical scenarios
+   * @why - Entry point for pre-built historical scenarios — triggers preview overlay instead of direct navigation
    */
+  import { createWebHaptics } from 'web-haptics/svelte';
+  import { onDestroy } from 'svelte';
 
   interface Scenario {
     id: string;
@@ -16,11 +18,27 @@
   }
 
   let { scenario }: { scenario: Scenario } = $props();
+
+  const haptic = createWebHaptics();
+  onDestroy(() => haptic.destroy());
+
+  function handleClick(e: MouseEvent) {
+    e.preventDefault();
+    haptic.trigger('light');
+    // Dispatch event — caught by SessionPreview overlay
+    window.dispatchEvent(
+      new CustomEvent('past-live:scenario-select', {
+        detail: { scenarioId: scenario.id },
+      }),
+    );
+  }
 </script>
 
 <a
-  href={`/session?scenario=${scenario.id}`}
+  href={`/session?scenario=${scenario.id}&mic=1&cam=1`}
+  onclick={handleClick}
   class="group block relative border border-border rounded-sm bg-background px-5 py-4 hover:border-accent/20 transition-colors"
+  aria-label="Accept briefing: {scenario.headline} — {scenario.role} in {scenario.location}"
 >
   <!-- Vertical margin line -->
   <div class="absolute top-0 left-[48px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
@@ -28,7 +46,7 @@
   <div class="pl-[36px]">
     <!-- Dispatch header -->
     <div class="text-accent font-mono text-[10px] tracking-[0.12em] uppercase mb-2">
-      > DISPATCH {scenario.dispatch}
+      &gt; DISPATCH {scenario.dispatch}
     </div>
 
     <!-- Headline -->
@@ -38,10 +56,10 @@
 
     <!-- Dispatch fields -->
     <div class="font-mono text-[11px] text-foreground/30 space-y-0.5 mb-3">
-      <div>> location: {scenario.location}</div>
-      <div>> status: {scenario.status}</div>
-      <div>> role: {scenario.role}</div>
-      <div>> threat level: <span class="text-accent">{scenario.threat}</span></div>
+      <div>&gt; location: {scenario.location}</div>
+      <div>&gt; status: {scenario.status}</div>
+      <div>&gt; role: {scenario.role}</div>
+      <div>&gt; threat level: <span class="text-accent">{scenario.threat}</span></div>
     </div>
 
     <!-- CTA -->

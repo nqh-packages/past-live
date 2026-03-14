@@ -1,18 +1,25 @@
 ---
 /**
  * @what - Session screen for Past, Live
- * @why - In-session UI: SessionManager lifecycle + portrait + subtitles + mic + text input
+ * @why - In-session UI: countdown, chat log, waveform, mic button, hint bar, timer, text input
  */
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SessionManager from "@/components/SessionManager.svelte";
 import MicButton from "@/components/MicButton.svelte";
-import SubtitleDisplay from "@/components/SubtitleDisplay.svelte";
+import ChatLog from "@/components/ChatLog.svelte";
+import SpeakingIndicator from "@/components/SpeakingIndicator.svelte";
+import SessionTimer from "@/components/SessionTimer.svelte";
 import SessionInput from "@/components/SessionInput.svelte";
 
 const url = new URL(Astro.request.url);
 const scenarioId = url.searchParams.get("scenario") ?? undefined;
 const topic = url.searchParams.get("topic") ?? undefined;
+const micParam = url.searchParams.get("mic") === "1";
+const camParam = url.searchParams.get("cam") === "1";
+
+// Guard: no valid session params → redirect to home
+if (!scenarioId && !topic) return Astro.redirect('/app');
 
 // VITE_* not available in Svelte islands — must pass as prop from Astro page
 const backendWsUrl = import.meta.env.PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8787/ws";
@@ -30,48 +37,120 @@ const dispatchLabel = scenarioId
 ---
 
 <BaseLayout title="Past, Live — Session Active">
-  <!-- SessionManager: invisible island that owns WS lifecycle + overlays -->
+  <!--
+    Color theme injection: reads OKLCH values from sessionStorage (set by SessionPreview overlay)
+    and applies them as CSS custom properties on the session root element.
+    Validates OKLCH syntax before applying to prevent injection.
+  -->
+  <script is:inline>
+    (function() {
+      var OKLCH_RE = /^oklch\(\s*[\d.]+%?\s+[\d.]+\s+[\d.]+\s*\)$/;
+      try {
+        var raw = sessionStorage.getItem('past-live:preview');
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        var palette = data && Array.isArray(data.colorPalette) ? data.colorPalette : [];
+        if (palette.length < 5) return;
+        var props = ['--color-background','--color-surface','--color-accent','--color-foreground','--color-muted'];
+        var root = document.documentElement;
+        palette.forEach(function(val, i) {
+          if (props[i] && OKLCH_RE.test(String(val).trim())) {
+            root.style.setProperty(props[i], val);
+          }
+        });
+      } catch(_) {}
+    })();
+  </script>
+
+  <!-- SessionManager: invisible orchestrator — WS lifecycle, countdown, auto-mic -->
   <SessionManager
     client:load
     scenarioId={scenarioId}
     topic={topic}
     backendWsUrl={backendWsUrl}
+    mic={micParam}
+    cam={camParam}
   />
 
-  <main class="flex flex-col items-center min-h-screen px-5 py-8 max-w-md mx-auto">
-    <!-- Dispatch status header -->
-    <div class="w-full mb-6">
+  <main class="flex flex-col min-h-screen min-h-dvh px-4 sm:px-5 py-6 sm:py-8 max-w-md mx-auto">
+
+    <!-- Dispatch status header + timer row -->
+    <header class="w-full mb-4">
       <div class="relative pl-[72px]">
         <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
         <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
           &gt; session active
         </div>
-        <div class="font-mono text-[10px] text-foreground/30 mt-1">
+        <div class="font-mono text-[10px] text-foreground/30 mt-0.5">
           &gt; {dispatchLabel}
         </div>
       </div>
+    </header>
+
+    <!-- Session timer (hidden until 5:00 remaining) -->
+    <div class="w-full pl-[72px] mb-4">
+      <SessionTimer client:load />
     </div>
 
-    <!-- Character portrait placeholder -->
-    <div class="w-44 h-44 rounded-sm border border-border bg-surface flex items-center justify-center mb-8">
-      <span class="font-mono text-[10px] text-foreground/20 tracking-wider">[ portrait ]</span>
+    <!-- Character portrait — populated from sessionStorage preview data -->
+    <div
+      class="w-32 h-32 sm:w-36 sm:h-36 rounded-sm border border-border bg-surface flex items-center justify-center mb-5 self-center overflow-hidden"
+      aria-label="Character portrait"
+      id="portrait-container"
+    >
+      <span class="font-mono text-[10px] text-foreground/20 tracking-wider" id="portrait-placeholder">[ portrait ]</span>
     </div>
 
-    <!-- Live subtitles -->
-    <div class="w-full mb-8">
-      <SubtitleDisplay client:load />
+    <!-- Portrait hydration from sessionStorage -->
+    <script is:inline>
+      (function() {
+        try {
+          var raw = sessionStorage.getItem('past-live:preview');
+          if (!raw) return;
+          var data = JSON.parse(raw);
+          if (data && data.avatar) {
+            var container = document.getElementById('portrait-container');
+            var placeholder = document.getElementById('portrait-placeholder');
+            if (container && placeholder) {
+              var img = document.createElement('img');
+              img.src = 'data:image/jpeg;base64,' + data.avatar;
+              img.alt = (data.characterName || 'Character') + ' portrait';
+              img.className = 'w-full h-full object-cover';
+              img.width = 144;
+              img.height = 144;
+              placeholder.remove();
+              container.appendChild(img);
+            }
+          }
+        } catch(_) {}
+      })();
+    </script>
+
+    <!-- Speaking indicator (waveform bars while model speaks) -->
+    <div class="flex justify-center mb-3" aria-live="polite">
+      <SpeakingIndicator client:load />
     </div>
 
-    <!-- Spacer pushes controls to bottom -->
-    <div class="flex-1"></div>
+    <!-- Chat log (character-named messages) — scrollable, flex-1 fills remaining space -->
+    <div class="w-full mb-4 flex-1 min-h-0">
+      <ChatLog client:load />
+    </div>
 
-    <!-- Mic button -->
-    <div class="mb-4">
+    <!-- Persistent hint bar -->
+    <div
+      class="w-full text-center font-mono text-[10px] text-foreground/20 tracking-[0.06em] mb-3"
+      aria-label="Interaction hint"
+    >
+      click mic to mute · or type below
+    </div>
+
+    <!-- Mic button — thumb-reachable at bottom of screen -->
+    <div class="flex justify-center mb-3">
       <MicButton client:load />
     </div>
 
-    <!-- Text input -->
-    <div class="w-full">
+    <!-- Text input — always visible, sends via WebSocket -->
+    <div class="w-full pb-safe">
       <SessionInput client:load />
     </div>
   </main>

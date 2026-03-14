@@ -44,33 +44,57 @@ Comprehensive UX decisions from persona council validation (2026-03-13). 6 perso
 
 ---
 
-## 2. Text Input: Hybrid Mode
+## 2. Voice + Text Input: Auto-Mic Mode
 
-**Problem:** Jun (accent anxiety), Tomás (family hearing), Maya (bedroom-only) can't always speak.
+**Problem:** Jun (accent anxiety), Tomás (family hearing), Maya (bedroom-only) can't always speak. AND hold-to-talk is unintuitive on web (David/Huy feedback 2026-03-13).
 
-**Solution:** Agent ALWAYS speaks via voice. Student can respond via voice OR text.
+**Solution:** Mic auto-activates on session entry. Mute/unmute toggle. Text always available.
 
 ```
 ┌─────────────────────────────┐
 │  [Character portrait]        │
-│  [Live subtitles]            │
-│                              │
+│  ▁▃▅▇▅▃▁  (waveform)        │
+│  > [DISPATCH] The harbor...  │
+│  > [YOU] Should we close..   │
+│  click mic to mute · type    │
+│  ┌────────────────────────┐  │
+│  │ 🎙️ channel open       │  │
+│  └────────────────────────┘  │
 │  ┌────────────────────────┐  │
 │  │ Type a response...     │  │
 │  └────────────────────────┘  │
-│  [🎙️ Hold to speak]         │
 └─────────────────────────────┘
 ```
 
 | Input Method | UI Element | Default |
 |-------------|------------|---------|
-| Voice (mic) | Hold-to-speak button | Primary (larger) |
-| Text | Input field below subtitles | Secondary (always visible) |
+| Voice (mic) | Auto-active mute/unmute toggle + spacebar | Primary (always on) |
+| Text | Input field below chat log | Secondary (always visible) |
 | Camera | Only at opt-in moment | Hidden until prompted |
 
-**For hackathon demo video:** Show voice interaction (matches challenge). Text input exists but isn't the focus.
+### Mic States
 
-**Technical:** Text input uses `session.sendRealtimeInput({ text: '...' })` — same API, no extra complexity.
+| State | Visual | Label |
+|-------|--------|-------|
+| Active (default) | Pulsing accent border | `> channel open` |
+| Muted | Dimmed, mic-slash icon | `> channel muted` |
+| Disabled (no session) | 40% opacity | `> offline` |
+
+### Session Entry Mic Flow
+
+1. Pre-checked ☑ "enable microphone" on [ENTER SESSION] button
+2. User can uncheck → mic starts MUTED (NOT disabled — can unmute anytime during session)
+3. Checked (default): auto-call `startMic()` from button gesture
+4. If browser blocks → show "tap to enable voice" prompt
+5. If denied → mic stays muted, but mute/unmute button always visible and functional
+6. Voice is ALWAYS the PRIMARY interaction mode — mic is never removed from UI
+7. This is a Live API hackathon — voice IS the product
+
+### Interruption (Hackathon Requirement)
+
+Mic stays streaming while model speaks. User just talks to interrupt — Gemini VAD detects speech, sends `interrupted` signal, browser clears audio queue. No button press needed.
+
+**Technical:** `sendRealtimeInput({ text: '...' })` for text, continuous PCM 16kHz stream for voice. No `sendAudioEnd` on pauses — VAD handles turn detection.
 
 ---
 
@@ -149,30 +173,87 @@ Now — WHERE do we yeet them?"
 | 5s | Warm-up question from last session |
 | 10s | "What are you studying today?" OR show home screen with scenario cards |
 
-### Home Screen (Menu + Input Hybrid)
+### Landing Page (`/`)
+
+Hero + feature bullets + CTA. Single page for both judges and users.
 
 ```
 ┌─────────────────────────────────┐
-│                                 │
-│  What are you studying?         │
-│  [🎙️ speak or type here      ] │
-│                                 │
-│  ── or try a story ──           │
-│                                 │
-│  ┌────────┐ ┌────────┐ ┌────────┐
-│  │  1453  │ │  1969  │ │  1206  │
-│  │ Walls  │ │  Moon  │ │  Khan  │
-│  │ fall   │ │ landing│ │ rises  │
-│  └────────┘ └────────┘ └────────┘
-│                                 │
-│  🔒 Voice processed live,      │
-│     never recorded              │
+│  Past, LIVE                      │
+│  "The past is speaking.          │
+│   Are you?"                      │
+│                                  │
+│  > voice-first time travel       │
+│  > you make the call             │
+│  > no wrong answers              │
+│                                  │
+│  [ ENTER THE ARCHIVE ]           │
+│                                  │
+│  voice processed live,           │
+│  never recorded                  │
 └─────────────────────────────────┘
 ```
 
-- Input field is primary (supports voice + text)
-- 3 scenario cards below for browsing / demo purposes
-- Privacy footer always visible
+### Home Screen (`/app`) — Menu + Input Hybrid
+
+```
+┌─────────────────────────────────┐
+│  Past, LIVE                      │
+│  "The past is speaking.          │
+│   Are you?"                      │
+│                                  │
+│  Pick a dispatch or type your own│
+│                                  │
+│  ┌────────────────────────────┐  │
+│  │ what are you studying?     │  │
+│  └────────────────────────────┘  │
+│  [🎙️ mic] [📷 camera]          │
+│  speak, type, or snap a photo   │
+│                                  │
+│  ── or accept a briefing ──      │
+│                                  │
+│  ┌────────┐ ┌────────┐ ┌────────┐│
+│  │  1453  │ │  1969  │ │  1206  ││
+│  │ Walls  │ │  Moon  │ │  Khan  ││
+│  │ fall   │ │ landing│ │ rises  ││
+│  └────────┘ └────────┘ └────────┘│
+│                                  │
+│  voice processed live,           │
+│  never recorded                  │
+└─────────────────────────────────┘
+```
+
+| Input Mode | Implementation | Cost |
+|------------|---------------|------|
+| Text | Already works | $0 |
+| Voice | Web Speech API (browser-native, Chrome/Safari) | $0 |
+| Image | Camera → Gemini Flash vision → topic extraction | ~$0.0008/image |
+
+### Session Preview Overlay (on Home Screen)
+
+After input, 2 parallel Gemini calls generate preview. Overlay shows:
+
+```
+┌───────────────────────────────┐
+│  > SESSION BRIEFING            │
+│  ┌─────────────┐              │
+│  │  [Portrait]  │              │
+│  │  generated   │              │
+│  └─────────────┘              │
+│  You are: Emperor's advisor   │
+│  Setting: Constantinople 1453 │
+│  Stakes: The walls are        │
+│    falling...                 │
+│                               │
+│  ☑ Enable microphone          │
+│                               │
+│  [EDIT]    [ENTER SESSION]    │
+└───────────────────────────────┘
+```
+
+- Preset scenarios: pre-filled from metadata, still show overlay
+- Edit mode: modify topic + notes, original input preserved, [REGENERATE PREVIEW]
+- Color theme from Flash JSON (5 hex colors) applied to overlay + session page
 
 ---
 
@@ -305,6 +386,105 @@ interface StudentProfile {
 ```
 
 **How profile gets populated:** Agent generates personality/learning observations during session. Post-session Gemini call extracts structured data from transcript and updates Firestore.
+
+---
+
+## 9. Session Timer
+
+Visible countdown timer in session UI showing remaining time. Driven by Live API's 15-minute hard limit.
+
+| Aspect | Detail |
+|--------|--------|
+| Position | Top of session UI, near session status |
+| Format | `> 11:42 remaining` (Dispatch register) |
+| Source | Client-side timer, starts on session active |
+| Warning | At `> 2:00 remaining` — visual emphasis (accent color) |
+| Zero | Timer hits 0 → session ends gracefully |
+
+---
+
+## 10. Chat Log Sender Tags
+
+Sender tags use the **character name**, not generic labels.
+
+| Sender | Tag Format | Example |
+|--------|-----------|---------|
+| Model (character) | `> [CHARACTER_NAME]` | `> [CONSTANTINE XI] The harbor chain...` |
+| Model (narrator) | `> [NARRATOR]` | `> [NARRATOR] ...even the storyteller didn't see that coming.` |
+| User | `> [YOU]` | `> [YOU] Should we close the harbor?` |
+
+Character name sourced from session preview JSON `characterName` field. Never hardcode "DISPATCH" as a speaker tag.
+
+---
+
+## 11. Social Sharing Card (Phase 2)
+
+Downloadable funny summary card designed for Instagram stories.
+
+| Aspect | Detail |
+|--------|--------|
+| Content | Session outcome, funny quote, character portrait, key stat |
+| Format | Vertical card (9:16 ratio for Instagram stories) |
+| Download | Button OUTSIDE the card (not overlaid on it) |
+| Face variation | If user photo available (from camera opt-in), generate face variation in character outfit |
+| Generation | Post-session Gemini call generates card copy; image composited client-side |
+| Priority | Phase 2 — after core session flow ships |
+
+---
+
+## 12. Persistent Avatar
+
+Top-right corner of the app. Links to Clerk auth (sign in / profile).
+
+| State | Display |
+|-------|---------|
+| Anonymous | Default avatar icon → links to sign-in |
+| Signed in | Clerk `<UserButton />` — profile, sign out |
+
+Always visible across all screens (landing, home, session, summary).
+
+---
+
+## 13. Auth: Anonymous-First
+
+Sign-up is welcomed but never forced. Users can experience the full session flow without an account.
+
+| Feature | Anonymous | Signed In |
+|---------|-----------|-----------|
+| Session (voice role-play) | YES | YES |
+| Post-session summary | YES | YES |
+| Profile persistence (warm-ups, history) | NO (session-only) | YES |
+| Social sharing card | YES | YES |
+| Sign-up prompt | Gentle nudge on summary screen: "Save your progress?" | Already saved |
+
+---
+
+## 14. Mobile: Responsive Session Page
+
+Session page MUST work on phones. Portrait orientation, single-column layout.
+
+| Aspect | Detail |
+|--------|--------|
+| Layout | Single column, portrait-first |
+| Chat log | Scrollable, auto-scrolls to latest message |
+| Virtual keyboard | Text input field pushes content up; chat log remains scrollable above keyboard |
+| Mic button | Thumb-reachable (bottom of screen) |
+| Portrait image | Scales down but stays visible |
+| Timer | Compact display, always visible |
+| Touch targets | Minimum 44px for all interactive elements |
+
+---
+
+## 15. Camera Checkbox Behavior
+
+The camera checkbox on the session preview overlay controls whether video is **completely OFF** — not just muted.
+
+| Checkbox State | Behavior |
+|----------------|----------|
+| ☑ Checked (default) | Camera activates, video frames sent to Gemini |
+| ☐ Unchecked | Camera is **completely OFF** — no `getUserMedia` video, no frames sent, no camera indicator |
+
+This is NOT a mute toggle. Unchecking means video is excluded from the session entirely. The mic checkbox controls voice independently.
 
 ---
 

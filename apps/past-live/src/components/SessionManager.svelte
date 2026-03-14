@@ -1,84 +1,173 @@
 <script lang="ts">
   /**
-   * @what - Invisible orchestrator island that manages WebSocket session lifecycle
-   * @why - Mounts on /session, connects WS, wires audio callbacks, handles state transitions
-   * @props - scenarioId, topic, backendWsUrl
+   * @what - Invisible orchestrator island managing WebSocket session lifecycle
+   * @why - Mounts on /session, connects WS, wires audio callbacks, handles countdown + auto-mic
+   * @props - scenarioId, topic, backendWsUrl, mic (auto-activate), cam (enable camera)
    */
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy } from 'svelte';
   import {
-    $status as statusStore,
-    $error as errorStore,
+    $status as status,
+    $error as error,
+    $isSpeaking as isSpeaking,
+    $micEnabled as micEnabled,
   } from '../stores/liveSession';
-  import { connectSession, disconnect, sendAudio, sendAudioEnd } from '../lib/liveSession/client';
-  import { setAudioSendCallbacks } from '../lib/liveSession/audio';
+  import {
+    connectSession,
+    disconnect,
+    sendAudio,
+    sendAudioEnd,
+  } from '../lib/liveSession/client';
+  import {
+    setAudioCallbacks,
+    startMic,
+    stopMic,
+    preWarmAudioContext,
+  } from '../lib/liveSession/audio';
+  import CountdownOverlay from './CountdownOverlay.svelte';
+  import FunLoadingText from './FunLoadingText.svelte';
 
   interface Props {
     scenarioId?: string;
     topic?: string;
     backendWsUrl: string;
+    /** Whether to auto-activate mic on session entry (from URL param ?mic=1) */
+    mic?: boolean;
+    /** Whether to enable camera (from URL param ?cam=1) */
+    cam?: boolean;
   }
 
-  let { scenarioId, topic, backendWsUrl }: Props = $props();
+  let { scenarioId, topic, backendWsUrl, mic = true, cam = false }: Props = $props();
 
-  let status = $state(statusStore.get());
-  let errorMsg = $state(errorStore.get());
+  // ─── Phase state ──────────────────────────────────────────────────────────
 
-  onMount(() => {
-    const unsubStatus = statusStore.subscribe((v) => { status = v; });
-    const unsubError = errorStore.subscribe((v) => { errorMsg = v; });
+  /**
+   * showCountdown: plays the 3-second countdown overlay before session starts.
+   * After countdown completes, if WS is still connecting → show FunLoadingText.
+   */
+  let showCountdown = $state(true);
+  let countdownDone = $state(false);
 
-    setAudioSendCallbacks(sendAudio, sendAudioEnd);
+  // ─── Audio callback wiring ─────────────────────────────────────────────────
 
-    if (scenarioId || topic) {
-      connectSession({ scenarioId, topic, backendWsUrl });
+  setAudioCallbacks(sendAudio, sendAudioEnd, (playing) => {
+    isSpeaking.set(playing);
+  });
+
+  // ─── Pre-warm AudioContext on mount (user gesture happened at [ENTER SESSION]) ──
+
+  preWarmAudioContext();
+
+  // ─── Connect WebSocket immediately (runs in background during countdown) ──
+
+  if (scenarioId || topic) {
+    connectSession({ scenarioId, topic, backendWsUrl });
+  }
+
+  // ─── Spacebar toggles mute/unmute (only when NOT focused on text input) ───
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key !== ' ') return;
+
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      (active instanceof HTMLElement && active.isContentEditable)
+    ) {
+      return; // spacebar types normally in text fields
     }
 
-    return () => {
-      unsubStatus();
-      unsubError();
-    };
-  });
+    e.preventDefault();
 
-  onDestroy(() => {
-    disconnect();
-  });
+    if ($status !== 'active') return;
+
+    if ($micEnabled) {
+      stopMic();
+      micEnabled.set(false);
+    } else {
+      startMic()
+        .then(() => { micEnabled.set(true); })
+        .catch(() => {});
+    }
+  }
 
   $effect(() => {
-    if (status === 'ended') {
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
+  });
+
+  // ─── Auto-mic from URL param on session active ────────────────────────────
+
+  $effect(() => {
+    if ($status === 'active' && mic && !$micEnabled) {
+      startMic()
+        .then(() => { micEnabled.set(true); })
+        .catch(() => {
+          // getUserMedia denied — user can click MicButton to retry
+        });
+    }
+  });
+
+  // ─── Redirect on session end ──────────────────────────────────────────────
+
+  $effect(() => {
+    if ($status === 'ended') {
       window.location.href = '/summary';
     }
   });
 
-  function retry() {
-    if (scenarioId || topic) {
-      connectSession({ scenarioId, topic, backendWsUrl });
-    }
+  // ─── Countdown complete handler ────────────────────────────────────────────
+
+  function onCountdownComplete() {
+    showCountdown = false;
+    countdownDone = true;
   }
+
+  // ─── Retry ────────────────────────────────────────────────────────────────
+
+  function retry() {
+    connectSession({ scenarioId, topic, backendWsUrl });
+  }
+
+  onDestroy(() => {
+    disconnect();
+    window.removeEventListener('keydown', handleKeydown);
+  });
+
+  // Whether we're still waiting for WS after countdown finished
+  const isWaitingAfterCountdown = $derived(
+    countdownDone && $status === 'connecting',
+  );
 </script>
 
-{#if status === 'connecting'}
+<!-- Countdown overlay: plays 3s then fires onCountdownComplete -->
+{#if showCountdown}
+  <CountdownOverlay oncomplete={onCountdownComplete} />
+{/if}
+
+<!-- Connection wait (after countdown, WS still connecting): show fun loading text -->
+{#if isWaitingAfterCountdown}
   <div class="fixed inset-0 z-40 flex flex-col items-center justify-center bg-background/95">
     <div class="relative pl-[72px]">
       <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
-      <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase animate-pulse mb-2">
-        &gt; establishing channel...
-      </div>
-      <div class="font-mono text-[10px] text-foreground/30">
-        &gt; contacting historical record
-      </div>
+      <FunLoadingText />
     </div>
   </div>
 {/if}
 
-{#if status === 'error'}
+<!-- Error overlay -->
+{#if $status === 'error'}
   <div class="fixed inset-0 z-40 flex flex-col items-center justify-center bg-background/95">
     <div class="max-w-xs text-center space-y-6">
       <div class="font-mono text-[10px] text-accent tracking-[0.12em] uppercase">
-        &gt; transmission lost
+        &gt; signal lost
       </div>
       <p class="font-mono text-xs text-foreground/40">
-        {errorMsg || 'Connection failed'}
+        {$error || 'transmission interrupted'}
       </p>
+      <div class="font-mono text-[10px] text-foreground/20">
+        &gt; the past is not responding
+      </div>
       <div class="flex gap-4 justify-center">
         <button
           type="button"
@@ -89,12 +178,22 @@
           [ retry ]
         </button>
         <a
-          href="/"
+          href="/app"
           class="border border-border text-foreground/40 font-mono text-[11px] tracking-[0.12em] uppercase px-5 py-2.5 rounded-sm hover:border-accent/20 hover:text-foreground/60 transition-colors"
         >
           [ abort ]
         </a>
       </div>
     </div>
+  </div>
+{/if}
+
+<!-- Tap-to-enable voice fallback: shown when mic permission was denied -->
+{#if $status === 'active' && !$micEnabled}
+  <div
+    class="fixed bottom-28 left-1/2 -translate-x-1/2 z-30 font-mono text-[10px] text-foreground/30 tracking-[0.06em] pointer-events-none"
+    aria-live="polite"
+  >
+    &gt; tap mic to enable voice
   </div>
 {/if}

@@ -1,7 +1,10 @@
 /**
  * @what - Cross-island Nano Store for live session state
- * @why - Single source of truth for session status, transcripts, and summary across Svelte islands
- * @exports - $status, $outputTranscript, $inputTranscript, $error, $sessionId, $scenarioId, $topic, $summary, $isActive, $isConnecting, $sessionStartTime
+ * @why - Single source of truth for session status, transcripts, chat log, and preview data
+ * @exports - $status, $outputTranscript, $inputTranscript, $error, $sessionId, $scenarioId,
+ *            $topic, $summary, $isActive, $isConnecting, $sessionStartTime,
+ *            $messages, $isSpeaking, $micEnabled, $characterName, $previewData,
+ *            addMessage, appendToLastMessage, resetSession, appendOutputTranscript, appendInputTranscript
  */
 
 import { atom, computed } from 'nanostores';
@@ -12,13 +15,67 @@ export type SessionStatus = 'idle' | 'connecting' | 'active' | 'ended' | 'error'
 
 export const $status = atom<SessionStatus>('idle');
 
-// ─── Transcripts ──────────────────────────────────────────────────────────────
+// ─── Transcripts (backward compat) ────────────────────────────────────────────
 
 /** Accumulated text of what the agent said */
 export const $outputTranscript = atom<string>('');
 
 /** Accumulated text of what the student said */
 export const $inputTranscript = atom<string>('');
+
+// ─── Chat log ──────────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  sender: string;
+  text: string;
+}
+
+/** Structured chat log — rendered by ChatLog.svelte */
+export const $messages = atom<ChatMessage[]>([]);
+
+// ─── Audio / mic state ─────────────────────────────────────────────────────────
+
+/** True while model audio is playing — drives waveform animation */
+export const $isSpeaking = atom<boolean>(false);
+
+/** True when mic is unmuted and streaming */
+export const $micEnabled = atom<boolean>(false);
+
+// ─── Character name ────────────────────────────────────────────────────────────
+
+/**
+ * Character name for the current session.
+ * Sourced from preview JSON `characterName` field.
+ * Preset scenarios use PRESET_CHARACTER_NAMES; open topics default to 'NARRATOR'.
+ */
+export const $characterName = atom<string>('NARRATOR');
+
+/** Maps scenarioId → character display name used in the chat log */
+export const PRESET_CHARACTER_NAMES: Record<string, string> = {
+  'constantinople-1453': 'CONSTANTINE XI',
+  'moon-landing-1969': 'MISSION CONTROL',
+  'mongol-empire-1206': 'GENGHIS KHAN',
+};
+
+// ─── Session preview data ──────────────────────────────────────────────────────
+
+export interface PreviewData {
+  topic: string;
+  userRole: string;
+  characterName: string;
+  historicalSetting: string;
+  year: string;
+  context: string;
+  /** 5 OKLCH color values: [background, surface, accent, foreground, muted] */
+  colorPalette: string[];
+  /** Scene image as base64 or URL — may be absent if generation failed */
+  sceneImage?: string;
+  /** Character avatar as base64 or URL — may be absent if generation failed */
+  avatar?: string;
+}
+
+/** Preview data from the session briefing overlay — written before session entry */
+export const $previewData = atom<PreviewData | null>(null);
 
 // ─── Session metadata ─────────────────────────────────────────────────────────
 
@@ -63,6 +120,11 @@ export function resetSession(): void {
   $status.set('idle');
   $outputTranscript.set('');
   $inputTranscript.set('');
+  $messages.set([]);
+  $isSpeaking.set(false);
+  $micEnabled.set(false);
+  $characterName.set('NARRATOR');
+  $previewData.set(null);
   $error.set('');
   $sessionId.set('');
   $scenarioId.set('');
@@ -79,4 +141,35 @@ export function appendOutputTranscript(text: string): void {
 export function appendInputTranscript(text: string): void {
   const current = $inputTranscript.get();
   $inputTranscript.set(current ? `${current} ${text}` : text);
+}
+
+/**
+ * Appends a new message from the given sender to the chat log.
+ * If the last message already has this sender, appends text instead.
+ */
+export function addMessage(sender: string, text: string): void {
+  const msgs = $messages.get();
+  const last = msgs[msgs.length - 1];
+  if (last && last.sender === sender) {
+    $messages.set([
+      ...msgs.slice(0, -1),
+      { sender, text: `${last.text} ${text}` },
+    ]);
+  } else {
+    $messages.set([...msgs, { sender, text }]);
+  }
+}
+
+/**
+ * Appends text to the last message in the chat log regardless of sender.
+ * Use for streaming word-by-word chunks from the same turn.
+ */
+export function appendToLastMessage(text: string): void {
+  const msgs = $messages.get();
+  if (msgs.length === 0) return;
+  const last = msgs[msgs.length - 1];
+  $messages.set([
+    ...msgs.slice(0, -1),
+    { sender: last.sender, text: `${last.text} ${text}` },
+  ]);
 }

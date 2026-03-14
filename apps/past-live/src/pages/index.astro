@@ -1,79 +1,200 @@
 ---
 /**
- * @what - Home screen for Past, Live
- * @why - Entry point: hero, topic input, scenario cards, privacy footer
+ * @what - Landing page for Past, Live
+ * @why - Hackathon judges see this first; hero + how-it-works + CTA + For Judges section
  */
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import ScenarioCard from "@/components/ScenarioCard.svelte";
-import TopicInput from "@/components/TopicInput.svelte";
-
-const scenarios = [
-  {
-    id: "constantinople-1453",
-    dispatch: "#1453",
-    location: "constantinople",
-    year: 1453,
-    status: "walls breached",
-    role: "emperor's advisor",
-    threat: "critical",
-    headline: "The walls are falling.",
-  },
-  {
-    id: "moon-landing-1969",
-    dispatch: "#1969",
-    location: "apollo 11 command module",
-    year: 1969,
-    status: "fuel warning at 25 seconds",
-    role: "mission control",
-    threat: "critical",
-    headline: "25 seconds of fuel.",
-  },
-  {
-    id: "mongol-empire-1206",
-    dispatch: "#1206",
-    location: "mongol steppe",
-    year: 1206,
-    status: "alliance or war",
-    role: "khan's rival",
-    threat: "critical",
-    headline: "The khan rides.",
-  },
-];
 ---
 
-<BaseLayout>
-  <main class="flex flex-col items-center min-h-screen px-5 py-16 max-w-md mx-auto">
-    <!-- Logo -->
-    <h1 class="mb-4">
-      <span class="font-serif italic text-foreground/30 text-5xl">Past</span><span class="text-foreground/30 text-5xl font-serif">,</span>
-      <span class="font-display text-accent text-5xl tracking-wider">LIVE</span>
-    </h1>
+<BaseLayout
+  title="Past, Live — History is speaking. Are you?"
+  description="Voice-first time travel. Talk to historical figures. They talk back. Powered by Gemini Live API."
+>
+  <main class="min-h-screen flex flex-col items-center px-5 pb-24">
 
-    <!-- Hero: Codex register -->
-    <p class="font-serif italic text-foreground text-xl text-center leading-relaxed mb-14">
-      The page is speaking.<br />Are you?
-    </p>
+    <!-- ─── Hero ─────────────────────────────────────────────────────── -->
+    <section class="w-full max-w-md mx-auto pt-20 pb-16 text-center">
 
-    <!-- Input: Dispatch register -->
-    <section class="w-full mb-14">
-      <TopicInput client:load />
+      <!-- Logo -->
+      <div class="mb-10">
+        <h1 class="inline-flex items-baseline gap-0">
+          <span class="font-serif italic text-foreground/30 text-5xl sm:text-6xl">Past</span>
+          <span class="text-foreground/30 text-5xl sm:text-6xl font-serif">,</span>
+          <span class="font-display text-accent text-5xl sm:text-6xl tracking-wider ml-2">LIVE</span>
+        </h1>
+      </div>
+
+      <!-- Hero copy — Codex register -->
+      <h2 class="font-serif italic text-foreground text-2xl sm:text-3xl leading-snug mb-8">
+        The past is speaking.<br />Are you?
+      </h2>
+
+      <!-- 3 key bullets — Glitch Cinema register -->
+      <ul class="font-mono text-[12px] text-foreground/50 tracking-[0.08em] space-y-2 mb-12 text-left inline-block" aria-label="Key features">
+        <li><span class="text-accent/60">&gt;</span> voice-first time travel</li>
+        <li><span class="text-accent/60">&gt;</span> you make the call</li>
+        <li><span class="text-accent/60">&gt;</span> no wrong answers</li>
+      </ul>
+
+      <!-- Primary CTA -->
+      <div class="mb-8">
+        <a
+          href="/app"
+          class="inline-block font-mono text-sm tracking-[0.18em] uppercase px-8 py-4 border border-accent text-accent hover:bg-accent/10 transition-colors rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+          aria-label="Enter the archive and start a session"
+        >
+          [ enter the archive ]
+        </a>
+      </div>
+
+      <!-- Secondary CTA: scroll to For Judges -->
+      <a
+        href="#for-judges"
+        class="font-mono text-[10px] text-foreground/25 tracking-[0.12em] uppercase hover:text-foreground/50 transition-colors"
+        aria-label="Jump to the For Judges section"
+      >
+        &darr; for judges
+      </a>
     </section>
 
-    <!-- Divider -->
-    <p class="text-foreground/20 text-[10px] tracking-[0.2em] uppercase mb-8">
-      or accept a briefing
-    </p>
+    <!-- ─── How it works ─────────────────────────────────────────────── -->
+    <section class="w-full max-w-md mx-auto mb-24" aria-label="How it works">
+      <div class="relative pl-[72px]">
+        <!-- Dispatch margin line -->
+        <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
 
-    <!-- Scenario cards -->
-    <section class="w-full flex flex-col gap-4 mb-16">
-      {scenarios.map((s) => (
-        <ScenarioCard scenario={s} client:visible />
-      ))}
+        <div class="font-mono text-[10px] text-accent tracking-[0.15em] uppercase mb-8">
+          &gt; how it works
+        </div>
+
+        <!-- Step 1 -->
+        <div class="mb-10">
+          <div class="font-mono text-[10px] text-foreground/25 tracking-[0.1em] mb-2">
+            &gt; step 01
+          </div>
+          <h3 class="font-display text-foreground text-2xl tracking-wide mb-2">
+            Input
+          </h3>
+          <p class="font-mono text-[11px] text-foreground/40 leading-relaxed">
+            Type a topic, speak it, or snap a photo of your textbook.
+            The archive locates your moment in history.
+          </p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="mb-10">
+          <div class="font-mono text-[10px] text-foreground/25 tracking-[0.1em] mb-2">
+            &gt; step 02
+          </div>
+          <h3 class="font-display text-foreground text-2xl tracking-wide mb-2">
+            Preview
+          </h3>
+          <p class="font-mono text-[11px] text-foreground/40 leading-relaxed">
+            The archive generates your scene: who you are, the stakes,
+            the era. Review it. Change it. Then enter.
+          </p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="mb-10">
+          <div class="font-mono text-[10px] text-foreground/25 tracking-[0.1em] mb-2">
+            &gt; step 03
+          </div>
+          <h3 class="font-display text-foreground text-2xl tracking-wide mb-2">
+            Session
+          </h3>
+          <p class="font-mono text-[11px] text-foreground/40 leading-relaxed">
+            A historical figure speaks first. You respond, interrupt,
+            or stay silent. The story depends on your call.
+          </p>
+        </div>
+      </div>
     </section>
 
-    <!-- Privacy footer -->
-    <footer class="text-foreground/20 text-[10px] tracking-[0.15em] text-center">
+    <!-- ─── Second CTA ───────────────────────────────────────────────── -->
+    <section class="w-full max-w-md mx-auto text-center mb-24" aria-label="Call to action">
+      <p class="font-serif italic text-foreground/50 text-lg mb-8">
+        Your textbook becomes a portal.<br />
+        History is no longer something you read.
+      </p>
+      <a
+        href="/app"
+        class="inline-block font-mono text-sm tracking-[0.18em] uppercase px-8 py-4 border border-accent/50 text-accent/80 hover:border-accent hover:text-accent hover:bg-accent/5 transition-colors rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+        aria-label="Enter the archive and start a session"
+      >
+        [ enter the archive ]
+      </a>
+    </section>
+
+    <!-- ─── For Judges ───────────────────────────────────────────────── -->
+    <section
+      id="for-judges"
+      class="w-full max-w-md mx-auto mb-12"
+      aria-label="For hackathon judges"
+    >
+      <details class="border border-border rounded-sm">
+        <summary
+          class="font-mono text-[10px] text-foreground/30 tracking-[0.15em] uppercase px-5 py-4 cursor-pointer hover:text-foreground/50 transition-colors list-none flex items-center justify-between"
+          aria-label="Toggle judges section"
+        >
+          <span>&gt; for judges</span>
+          <span class="text-foreground/20 text-[8px]" aria-hidden="true">[ expand ]</span>
+        </summary>
+
+        <div class="px-5 pb-5 pt-2 space-y-6">
+          <!-- Tech stack -->
+          <div>
+            <div class="font-mono text-[10px] text-accent/60 tracking-[0.1em] uppercase mb-3">
+              &gt; tech stack
+            </div>
+            <div class="font-mono text-[10px] text-foreground/30 space-y-1">
+              <div>&gt; gemini live api (gemini-2.5-flash-native-audio)</div>
+              <div>&gt; gemini 3-flash-preview (session preview json)</div>
+              <div>&gt; gemini 3.1-flash-image-preview (scene art + avatar)</div>
+              <div>&gt; hono backend on cloud run (websocket relay)</div>
+              <div>&gt; astro 5 + svelte 5 on cloudflare workers</div>
+            </div>
+          </div>
+
+          <!-- Category -->
+          <div>
+            <div class="font-mono text-[10px] text-accent/60 tracking-[0.1em] uppercase mb-3">
+              &gt; category
+            </div>
+            <div class="font-mono text-[10px] text-foreground/30 space-y-1">
+              <div>&gt; live agents — real-time voice + vision</div>
+              <div>&gt; educational history role-play tutor</div>
+              <div>&gt; natural interruption via gemini vad</div>
+            </div>
+          </div>
+
+          <!-- Quick demo links -->
+          <div>
+            <div class="font-mono text-[10px] text-accent/60 tracking-[0.1em] uppercase mb-3">
+              &gt; quick start
+            </div>
+            <div class="font-mono text-[10px] text-foreground/30 space-y-1">
+              <div>&gt; click a scenario card on the next page</div>
+              <div>&gt; approve mic + camera when prompted</div>
+              <div>&gt; the character speaks first — just respond</div>
+            </div>
+          </div>
+
+          <a
+            href="/app"
+            class="block font-mono text-[11px] text-accent/70 tracking-[0.12em] uppercase hover:text-accent transition-colors text-center border border-accent/20 py-3 rounded-sm hover:border-accent/40"
+            aria-label="Go to the app to start a session"
+          >
+            [ begin demo ]
+          </a>
+        </div>
+      </details>
+    </section>
+
+    <!-- ─── Privacy footer ───────────────────────────────────────────── -->
+    <footer class="text-foreground/20 text-[10px] tracking-[0.15em] text-center" role="contentinfo">
       voice processed live, never recorded
     </footer>
+
   </main>
 </BaseLayout>

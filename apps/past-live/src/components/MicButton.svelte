@@ -1,40 +1,53 @@
 <script lang="ts">
   /**
-   * @what - Hold-to-speak mic button wired to real PCM 16kHz capture
-   * @why - Primary voice input; only active when session is live
+   * @what - Mic toggle button — click to mute/unmute streaming microphone
+   * @why - Auto-activates on session entry; replaces hold-to-talk for natural interruption flow
+   * @props - none (reads $isActive, $micEnabled from stores; startMic/stopMic from audio.ts)
    */
-  import { onMount } from 'svelte';
-  import { $isActive as isActiveStore } from '../stores/liveSession';
+  import { onDestroy } from 'svelte';
+  import { createWebHaptics } from 'web-haptics/svelte';
+  import { $isActive as isActive, $micEnabled as micEnabled } from '../stores/liveSession';
   import { startMic, stopMic } from '../lib/liveSession/audio';
 
-  type MicState = 'idle' | 'listening';
-  let micState = $state<MicState>('idle');
-  let isActive = $state(false);
+  const haptic = createWebHaptics();
+  onDestroy(() => haptic.destroy());
 
-  onMount(() => {
-    const unsub = isActiveStore.subscribe((v) => { isActive = v; });
-    return unsub;
-  });
+  // Mic state: active = streaming, muted = paused, disabled = no session
+  type MicState = 'active' | 'muted' | 'disabled';
 
-  const stateLabels: Record<MicState, string> = {
-    idle: '> channel closed',
-    listening: '> channel open',
+  const micState = $derived<MicState>(
+    !$isActive ? 'disabled' : $micEnabled ? 'active' : 'muted',
+  );
+
+  const ariaLabels: Record<MicState, string> = {
+    active: 'Mute microphone',
+    muted: 'Unmute microphone',
+    disabled: 'Microphone offline',
   };
 
-  async function handlePointerDown() {
-    if (!isActive) return;
-    micState = 'listening';
-    try {
-      await startMic();
-    } catch {
-      micState = 'idle';
-    }
-  }
+  const stateLabels: Record<MicState, string> = {
+    active: '> channel open',
+    muted: '> channel muted',
+    disabled: '> offline',
+  };
 
-  function handlePointerUp() {
-    if (micState === 'listening') {
-      micState = 'idle';
+  async function handleToggle() {
+    if (!$isActive) return;
+
+    haptic.trigger('light');
+
+    if ($micEnabled) {
+      // Mute: stop streaming but keep session alive
       stopMic();
+      micEnabled.set(false);
+    } else {
+      // Unmute: resume streaming
+      try {
+        await startMic();
+        micEnabled.set(true);
+      } catch {
+        // getUserMedia denied — stay muted, user sees the muted state
+      }
     }
   }
 </script>
@@ -42,22 +55,53 @@
 <div class="flex flex-col items-center gap-2">
   <button
     type="button"
-    onpointerdown={handlePointerDown}
-    onpointerup={handlePointerUp}
-    onpointerleave={handlePointerUp}
-    disabled={!isActive}
-    class="w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all select-none touch-none
-      {!isActive ? 'border-border/20 opacity-40 cursor-not-allowed' : ''}
-      {isActive && micState === 'idle' ? 'border-accent/30 hover:border-accent/50' : ''}
-      {micState === 'listening' ? 'border-accent bg-accent/10 shadow-[0_0_24px_rgba(255,60,40,0.15)]' : ''}"
-    aria-label="Hold to speak"
-    aria-pressed={micState === 'listening'}
+    onclick={handleToggle}
+    disabled={!$isActive}
+    class="w-16 h-16 rounded-full border-2 flex items-center justify-center transition-all select-none
+      {micState === 'disabled' ? 'border-border/20 opacity-40 cursor-not-allowed' : ''}
+      {micState === 'muted' ? 'border-border/40 hover:border-accent/30' : ''}
+      {micState === 'active' ? 'border-accent bg-accent/10 shadow-[0_0_24px_rgba(255,60,40,0.15)]' : ''}"
+    aria-label={ariaLabels[micState]}
+    aria-pressed={micState === 'active'}
   >
-    {#if micState === 'listening'}
-      <div class="w-3 h-3 rounded-full bg-accent animate-pulse"></div>
+    {#if micState === 'active'}
+      <!-- Pulsing dot: mic streaming -->
+      <div class="w-3 h-3 rounded-full bg-accent animate-pulse" aria-hidden="true"></div>
+    {:else if micState === 'muted'}
+      <!-- Mic-slash icon: muted -->
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="text-foreground/30"
+        aria-hidden="true"
+      >
+        <line x1="2" y1="2" x2="22" y2="22" />
+        <path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" />
+        <path d="M5 10v2a7 7 0 0 0 12 0" />
+        <path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" />
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12" />
+        <line x1="12" y1="19" x2="12" y2="22" />
+      </svg>
     {:else}
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        class="{isActive ? 'text-accent/60' : 'text-foreground/20'}">
+      <!-- Mic icon: disabled/offline -->
+      <svg
+        width="22"
+        height="22"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="text-foreground/20"
+        aria-hidden="true"
+      >
         <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
         <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
         <line x1="12" y1="19" x2="12" y2="22" />

@@ -9,6 +9,16 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { createRelay } from './relay.js';
+import { extractTopicRoute } from './extract-topic.js';
+import { sessionPreviewRoute } from './session-preview.js';
+
+// ─── Startup guards ────────────────────────────────────────────────────────────
+
+// Skip API key check in test environments — tests mock Gemini at the module level
+if (process.env['VITEST'] === undefined && !process.env['GEMINI_API_KEY']) {
+  console.error('FATAL: GEMINI_API_KEY required');
+  process.exit(1);
+}
 
 // ─── App ──────────────────────────────────────────────────────────────────────
 
@@ -17,16 +27,21 @@ const app = new Hono();
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
 
 // CORS: allow all in dev, restrict to frontend domain in prod
+// Split comma-separated origins so multiple prod domains work
 app.use(
   '/*',
   cors({
-    origin: process.env['ALLOWED_ORIGIN'] ?? '*',
+    origin: process.env['ALLOWED_ORIGIN']?.split(',').map((s) => s.trim()) ?? ['*'],
   }),
 );
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
+
+// POST routes for home multimodal input and session preview overlay
+app.route('/', extractTopicRoute);
+app.route('/', sessionPreviewRoute);
 
 app.get(
   '/ws',

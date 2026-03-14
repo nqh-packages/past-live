@@ -169,6 +169,23 @@ Stripped-down field communications. Status. Location. Orders. You're already dep
 > advisor identity confirmed
 ```
 
+Connection wait (after countdown, if WS still connecting) uses the **same rotating fun text component** as preview loading. DRY — single component, two contexts.
+
+### Pattern: Session Preview Loading / Connection Wait (Shared Component)
+
+Fun, in-universe loading messages. Rotate randomly. Used for BOTH preview loading AND connection wait after countdown.
+
+```
+> wiring up the time machine...
+> dusting off the history books...
+> recruiting your character...
+> locating the era...
+> calibrating the portal...
+> the past is loading...
+> summoning witnesses...
+> scanning the archives...
+```
+
 ### Pattern: Session Status
 
 ```
@@ -212,11 +229,16 @@ than Constantine himself. Not bad for a first briefing.
 | Scenario card title | `> DISPATCH #1969` |
 | Scenario card subtitle | `> location: apollo 11 command module` |
 | Mic listening | `> channel open` |
-| Mic not listening | `> channel closed` |
+| Mic not listening | `> channel muted` |
 | Connecting to session | `> establishing link to 1206...` |
+| Connection wait (post-countdown) | Same rotating fun text as preview loading (shared component) |
 | Camera opt-in | `> visual channel available. accept?` |
 | Camera skipped | `> visual channel declined. proceeding.` |
+| Session timer | `> 11:42 remaining` |
 | Session ending soon | `> 2:00 remaining. wrap up transmission.` |
+| Chat log (model) | `> [CONSTANTINE XI] The harbor chain...` |
+| Chat log (narrator) | `> [NARRATOR] ...even the storyteller didn't see that coming.` |
+| Chat log (user) | `> [YOU] Should we close the harbor?` |
 | Text input placeholder | `> type your orders...` |
 
 ---

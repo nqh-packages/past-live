@@ -11,8 +11,11 @@ import {
   $scenarioId,
   $topic,
   $sessionStartTime,
+  $characterName,
+  $isSpeaking,
   appendOutputTranscript,
   appendInputTranscript,
+  addMessage,
 } from '../../stores/liveSession';
 import { queueAudio, clearAudioQueue } from './audio';
 import { createSummaryArtifact } from './summary';
@@ -29,6 +32,13 @@ export interface ConnectConfig {
 
 let ws: WebSocket | null = null;
 
+/**
+ * Suppress flag for ghost text after interruption.
+ * When the model is interrupted, its next 1-2 transcription events are stale
+ * audio that was already being spoken — we suppress them to avoid ghost messages.
+ */
+let suppressTranscriptionCount = 0;
+
 // ─── Connect ──────────────────────────────────────────────────────────────────
 
 export function connectSession(config: ConnectConfig): void {
@@ -36,6 +46,7 @@ export function connectSession(config: ConnectConfig): void {
     ws.close();
   }
 
+  suppressTranscriptionCount = 0;
   $status.set('connecting');
   if (config.scenarioId) $scenarioId.set(config.scenarioId);
   if (config.topic) $topic.set(config.topic);
@@ -103,20 +114,45 @@ function handleServerMessage(msg: Record<string, unknown>): void {
 
     case 'output_transcription': {
       if (typeof msg['text'] === 'string') {
-        appendOutputTranscript(msg['text']);
+        const text = msg['text'];
+
+        // Suppress stale chunks following an interruption (ghost text fix)
+        if (suppressTranscriptionCount > 0) {
+          suppressTranscriptionCount--;
+          break;
+        }
+
+        // Backward compat: still update $outputTranscript
+        appendOutputTranscript(text);
+
+        // Corpsing detection: "even the storyteller" → switch sender to NARRATOR
+        if (text.toLowerCase().includes('even the storyteller')) {
+          $characterName.set('NARRATOR');
+        }
+
+        // Message accumulation: character name is sender for model speech
+        // addMessage handles same-sender accumulation vs new message automatically
+        const sender = $characterName.get();
+        addMessage(sender, text);
       }
       break;
     }
 
     case 'input_transcription': {
       if (typeof msg['text'] === 'string') {
-        appendInputTranscript(msg['text']);
+        const text = msg['text'];
+        appendInputTranscript(text);
+        // User messages always use 'YOU' as sender
+        addMessage('YOU', text);
       }
       break;
     }
 
     case 'interrupted': {
+      // Suppress next 1-2 output_transcription events — they're already-spoken stale chunks
+      suppressTranscriptionCount = 2;
       clearAudioQueue();
+      $isSpeaking.set(false);
       break;
     }
 

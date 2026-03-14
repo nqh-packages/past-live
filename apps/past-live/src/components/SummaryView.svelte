@@ -42,8 +42,16 @@
   const duration = $derived(formatDuration(summary.durationMs));
   const relatedLinks = $derived(
     summary.relatedScenarios
-      .map((id) => ({ id, ...SCENARIO_LABELS[id] }))
-      .filter((s) => s.headline)
+      .map((id) => {
+        const label = SCENARIO_LABELS[id];
+        if (!label) return null;
+        return {
+          id,
+          headline: label.headline.replace(/[.!?]+$/, ''),
+          year: label.year,
+        };
+      })
+      .filter(Boolean) as { id: string; headline: string; year: string }[]
   );
 </script>
 
@@ -113,7 +121,7 @@
   <!-- CTA -->
   <section class="text-center mt-auto pb-8">
     <a
-      href="/"
+      href="/app"
       class="inline-block border border-accent/30 text-accent font-mono text-[11px] tracking-[0.12em] uppercase px-6 py-3 rounded-sm hover:bg-accent/5 transition-colors"
     >
       new session

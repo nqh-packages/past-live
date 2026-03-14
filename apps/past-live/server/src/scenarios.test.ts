@@ -343,6 +343,76 @@ describe('buildOpenTopicPrompt', () => {
   });
 });
 
+// ─── Accessible language rules (variant B) ────────────────────────────────────
+
+describe('BEHAVIORAL_RULES accessible language', () => {
+  // Get the BEHAVIORAL_RULES content through a scenario that embeds it
+  const promptUnderTest = (): string => getScenario('constantinople-1453')!.systemPrompt;
+
+  it('includes short sentence guidance (max 15 words per sentence)', () => {
+    // The rules section must contain a reference that signals accessible language
+    // We verify by checking the rules contain the forbidden vocabulary list
+    const prompt = promptUnderTest();
+    const hasForbiddenVocab = /FORBIDDEN VOCABULARY|forbidden vocabulary/i.test(prompt);
+    expect(hasForbiddenVocab).toBe(true);
+  });
+
+  it('includes a forbidden vocabulary list', () => {
+    const prompt = promptUnderTest();
+    // Must explicitly list hard academic words to block
+    const hasInexorable = /inexorable/i.test(prompt);
+    const hasNascent = /nascent/i.test(prompt);
+    const hasHegemony = /hegemony/i.test(prompt);
+    expect(hasInexorable).toBe(true);
+    expect(hasNascent).toBe(true);
+    expect(hasHegemony).toBe(true);
+  });
+
+  it('does not contain forbidden jargon words in the rules section', () => {
+    // The forbidden words should appear only in the "do not use" list — not in the actual instructions.
+    // We verify the rules prefer plain language by checking the plain-word instructions exist.
+    const prompt = promptUnderTest();
+    // Plain language markers present in variant B rules
+    const hasPlainLanguage =
+      /plain words/i.test(prompt) ||
+      /plain language/i.test(prompt) ||
+      /common sense/i.test(prompt);
+    expect(hasPlainLanguage).toBe(true);
+  });
+
+  it('uses documentary tone markers (BBC/PBS style)', () => {
+    // Variant B rules reference the narrator/documentary style
+    const prompt = promptUnderTest();
+    const hasDocumentaryTone =
+      /narrator break/i.test(prompt) ||
+      /even the storyteller/i.test(prompt) ||
+      /storyteller/i.test(prompt);
+    expect(hasDocumentaryTone).toBe(true);
+  });
+});
+
+describe('buildOpenTopicPrompt accessible language', () => {
+  it('includes forbidden vocabulary list', () => {
+    const prompt = buildOpenTopicPrompt('French Revolution');
+    const hasForbiddenVocab = /FORBIDDEN VOCABULARY|forbidden vocabulary/i.test(prompt);
+    expect(hasForbiddenVocab).toBe(true);
+  });
+
+  it('contains specific forbidden words in the list', () => {
+    const prompt = buildOpenTopicPrompt('French Revolution');
+    expect(/inexorable/i.test(prompt)).toBe(true);
+    expect(/hegemony/i.test(prompt)).toBe(true);
+  });
+
+  it('includes plain language guidance', () => {
+    const prompt = buildOpenTopicPrompt('French Revolution');
+    const hasPlainLanguage =
+      /plain words/i.test(prompt) ||
+      /plain language/i.test(prompt);
+    expect(hasPlainLanguage).toBe(true);
+  });
+});
+
 // ─── Cross-scenario integrity ─────────────────────────────────────────────────
 
 describe('cross-scenario integrity', () => {

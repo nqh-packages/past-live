@@ -1,21 +1,36 @@
 /**
  * @what - Mic capture (PCM 16kHz) and audio playback (PCM 24kHz) for live session
- * @why - Isolates Web Audio API complexity; sendAudio/sendAudioEnd are injected from client.ts
- * @exports - startMic, stopMic, queueAudio, clearAudioQueue, setAudioSendCallbacks
+ * @why - Isolates Web Audio API complexity; callbacks are injected from client.ts / SessionManager
+ * @exports - startMic, stopMic, queueAudio, clearAudioQueue, setAudioCallbacks, preWarmAudioContext
  */
 
 // ─── Callback injection (avoids circular import with client.ts) ───────────────
 
 type SendAudioFn = (base64: string) => void;
 type SendAudioEndFn = () => void;
+type PlaybackChangeFn = (playing: boolean) => void;
 
 let _sendAudio: SendAudioFn = () => {};
 let _sendAudioEnd: SendAudioEndFn = () => {};
+let _onPlaybackChange: PlaybackChangeFn = () => {};
 
-/** Called once by SessionManager to wire client.ts send helpers */
-export function setAudioSendCallbacks(send: SendAudioFn, sendEnd: SendAudioEndFn): void {
+/**
+ * Called once by SessionManager to wire client.ts send helpers and playback state callbacks.
+ * Replaces the old `setAudioSendCallbacks` — broader scope now includes playback events.
+ */
+export function setAudioCallbacks(
+  send: SendAudioFn,
+  sendEnd: SendAudioEndFn,
+  onPlaybackChange?: PlaybackChangeFn,
+): void {
   _sendAudio = send;
   _sendAudioEnd = sendEnd;
+  if (onPlaybackChange) _onPlaybackChange = onPlaybackChange;
+}
+
+/** @deprecated Use setAudioCallbacks instead */
+export function setAudioSendCallbacks(send: SendAudioFn, sendEnd: SendAudioEndFn): void {
+  setAudioCallbacks(send, sendEnd);
 }
 
 // ─── Mic state ────────────────────────────────────────────────────────────────
@@ -41,7 +56,7 @@ export async function startMic(): Promise<void> {
   micSource = micContext.createMediaStreamSource(micStream);
 
   // ScriptProcessorNode: deprecated but widely supported; AudioWorklet requires extra setup
-  // 4096 buffer gives ~256ms latency at 16kHz — acceptable for hold-to-speak
+  // 4096 buffer gives ~256ms latency at 16kHz — acceptable for streaming
   micProcessor = micContext.createScriptProcessor(4096, 1, 1);
 
   micProcessor.onaudioprocess = (e: AudioProcessingEvent) => {
@@ -113,6 +128,15 @@ function getPlaybackContext(): AudioContext {
   return playbackContext;
 }
 
+/**
+ * Pre-warms the AudioContext during a user gesture (e.g. [ENTER SESSION] click).
+ * Prevents Chrome autoplay policy blocking first audio chunk.
+ * Call as early as possible in the session entry flow.
+ */
+export function preWarmAudioContext(): void {
+  getPlaybackContext();
+}
+
 export function queueAudio(base64Data: string): void {
   const buffer = base64ToArrayBuffer(base64Data);
   playbackQueue.push(buffer);
@@ -121,21 +145,34 @@ export function queueAudio(base64Data: string): void {
 
 export function clearAudioQueue(): void {
   playbackQueue = [];
+  const wasPlaying = isPlaying;
   isPlaying = false;
   if (currentSource) {
     currentSource.onended = null;
     try { currentSource.stop(); } catch { /* already stopped */ }
     currentSource = null;
   }
+  // Notify playback end on interrupt — clears $isSpeaking immediately
+  if (wasPlaying) {
+    _onPlaybackChange(false);
+  }
 }
 
 function playNext(): void {
   if (playbackQueue.length === 0) {
-    isPlaying = false;
+    if (isPlaying) {
+      isPlaying = false;
+      _onPlaybackChange(false);
+    }
     return;
   }
 
+  const wasPlaying = isPlaying;
   isPlaying = true;
+  if (!wasPlaying) {
+    _onPlaybackChange(true);
+  }
+
   const rawBuffer = playbackQueue.shift()!;
   const ctx = getPlaybackContext();
 
