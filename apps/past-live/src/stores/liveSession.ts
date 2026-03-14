@@ -101,7 +101,7 @@ export interface PreviewData {
   avatar?: string;
 }
 
-/** Preview data from the session briefing overlay — written before session entry */
+/** Preview data from the call preview overlay — written before session entry */
 export const $previewData = atom<PreviewData | null>(null);
 
 // ─── Session metadata ─────────────────────────────────────────────────────────

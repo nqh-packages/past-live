@@ -76,7 +76,7 @@
   <!-- Full error state -->
   <div class="text-center py-6 space-y-4">
     <div class="font-mono text-[10px] text-accent/60 tracking-[0.1em]">
-      &gt; transmission failed
+      &gt; call failed
     </div>
     <p class="font-mono text-[11px] text-foreground/30">{loadError}</p>
     <button
@@ -142,7 +142,7 @@
   {#if isEditing}
     <div class="space-y-3 border border-border/50 rounded-sm p-4">
       <div class="font-mono text-[10px] text-accent/60 tracking-[0.1em] uppercase mb-2">
-        &gt; modify briefing
+        &gt; edit details
       </div>
       <div>
         <label for="edit-topic" class="font-mono text-[10px] text-foreground/40 mb-1 block">

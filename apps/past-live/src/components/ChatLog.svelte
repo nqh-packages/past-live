@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * @what - Character-named dispatch chat log for live session
+   * @what - Character-named chat log for live call session
    * @why - Replaces SubtitleDisplay; shows structured messages with sender tags
    * @note - Format: "> [CHARACTER_NAME] text..." / "> [NARRATOR] text..." / "> [YOU] text..."
    */
@@ -35,7 +35,7 @@
 >
   {#if $status === 'connecting'}
     <p class="font-mono text-[11px] text-foreground/30 animate-pulse">
-      &gt; awaiting transmission...
+      &gt; calling...
     </p>
   {:else if $messages.length === 0 && $status === 'active'}
     <p class="font-mono text-[11px] text-foreground/20">

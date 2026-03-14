@@ -217,7 +217,7 @@
         &gt; signal lost
       </div>
       <p class="font-mono text-xs text-foreground/40">
-        {$error || 'transmission interrupted'}
+        {$error || 'Connection lost'}
       </p>
       <div class="font-mono text-[10px] text-foreground/20">
         &gt; the past is not responding

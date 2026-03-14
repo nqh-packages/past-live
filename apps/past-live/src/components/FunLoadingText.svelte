@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * @what - Rotating brand-voice loading text in Dispatch register
+   * @what - Rotating brand-voice loading text for call connection
    * @why - DRY component shared by session preview loading AND connection wait after countdown
    * @note - Cycles through texts every ~3s. Stops cleanly on destroy.
    */
@@ -13,7 +13,7 @@
     '> the past is picking up...',
     '> hold the line...',
     '> summoning witnesses...',
-    '> scanning the archives...',
+    '> connecting your call...',
   ];
 
   const INTERVAL_MS = 3000;

@@ -1,7 +1,7 @@
 <script lang="ts">
   /**
    * @what - Topic input with three modes: text, voice (Web Speech API), camera (Gemini Flash)
-   * @why - Multimodal entry for the archive — student types, speaks, or snaps a photo
+   * @why - Multimodal entry — student types, speaks, or snaps a photo to call the past
    * @props - backendUrl: passed from Astro page (VITE_* unavailable in islands)
    */
   import { onDestroy } from 'svelte';
@@ -243,9 +243,9 @@
       disabled={!topic.trim()}
       class="flex-1 min-h-11 font-mono text-[11px] tracking-[0.12em] uppercase border rounded-sm transition-colors py-3
         {topic.trim() ? 'border-accent/50 text-accent/80 hover:border-accent hover:text-accent hover:bg-accent/5' : 'border-border/30 text-foreground/20 cursor-not-allowed'}"
-      aria-label="Submit topic and open session preview"
+      aria-label="Call this historical figure"
     >
-      [ open briefing ]
+      [ call ]
     </button>
   </div>
 
