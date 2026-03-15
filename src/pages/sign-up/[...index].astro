@@ -1,0 +1,16 @@
+---
+/**
+ * @what - Clerk sign-up catch-all route
+ * @why - Handles Clerk's multi-step sign-up flow and OAuth redirects
+ */
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { SignUp } from "@clerk/astro/components";
+import { clerkAppearance } from "@/lib/clerk-appearance";
+---
+
+<BaseLayout title="Past, Live — Create Account">
+  <main class="flex items-center justify-center min-h-screen min-h-dvh px-5">
+    <SignUp appearance={clerkAppearance} />
+  </main>
+</BaseLayout>

@@ -1,0 +1,130 @@
+---
+/**
+ * @what - Privacy & data disclosure page
+ * @why - Hackathon judges (Dr. Chen, AI Safety) flagged /privacy as a blocker.
+ *        Not a legal document — shows the team considered data handling.
+ */
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="Past, Live — Privacy & Data"
+  description="How Past, Live handles your data. Hackathon demo — not a production service."
+>
+  <main id="main-content" class="max-w-lg mx-auto px-5 py-16 font-mono text-sm">
+
+    <!-- Header -->
+    <div class="mb-12">
+      <a
+        href="/app"
+        class="text-foreground/30 hover:text-foreground/50 transition-colors text-xs tracking-[0.15em] uppercase"
+        aria-label="Back to the app"
+      >
+        &larr; back
+      </a>
+    </div>
+
+    <h1 class="text-accent text-xs tracking-[0.15em] uppercase mb-2">&gt; PRIVACY &amp; DATA</h1>
+    <p class="text-foreground/70 leading-relaxed mb-10">
+      Past, Live is a hackathon demonstration project submitted to the
+      Gemini Live Agent Challenge. It is not a production service.
+    </p>
+
+    <!-- What we process -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; WHAT WE PROCESS</h2>
+
+    <div class="mb-10 overflow-x-auto">
+      <table class="w-full text-xs" aria-label="Data processing summary">
+        <thead>
+          <tr class="text-foreground/30 text-left">
+            <th class="pb-3 pr-6 font-mono font-normal">Data</th>
+            <th class="pb-3 pr-6 font-mono font-normal">Where</th>
+            <th class="pb-3 font-mono font-normal">Stored?</th>
+          </tr>
+        </thead>
+        <tbody class="text-foreground/60">
+          <tr class="border-t border-border/20">
+            <td class="py-3 pr-6 align-top">Voice audio</td>
+            <td class="py-3 pr-6 align-top">Google Gemini API (live stream)</td>
+            <td class="py-3 align-top">Not recorded. Processed in real-time, discarded after session.</td>
+          </tr>
+          <tr class="border-t border-border/20">
+            <td class="py-3 pr-6 align-top">Topic text</td>
+            <td class="py-3 pr-6 align-top">Google Gemini API</td>
+            <td class="py-3 align-top">Session only, not persisted.</td>
+          </tr>
+          <tr class="border-t border-border/20">
+            <td class="py-3 pr-6 align-top">Auth (email, name)</td>
+            <td class="py-3 pr-6 align-top">Clerk</td>
+            <td class="py-3 align-top">Clerk's standard retention. Deletable via Clerk dashboard.</td>
+          </tr>
+          <tr class="border-t border-border/20">
+            <td class="py-3 pr-6 align-top">Session history</td>
+            <td class="py-3 pr-6 align-top">Google Firestore (EU)</td>
+            <td class="py-3 align-top">Name + topics + duration. Deletable on request.</td>
+          </tr>
+          <tr class="border-t border-border/20">
+            <td class="py-3 pr-6 align-top">Page analytics</td>
+            <td class="py-3 pr-6 align-top">PostHog (EU)</td>
+            <td class="py-3 align-top">Anonymized usage. No PII.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Google Gemini API -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; GOOGLE GEMINI API</h2>
+    <p class="text-foreground/70 leading-relaxed mb-10">
+      Audio is streamed to Google's Gemini API for real-time voice processing.
+      Per Google's API Terms of Service, API inputs may be retained for up to
+      30 days for safety monitoring and abuse prevention. Audio is not permanently
+      stored or used for model training. See Google's Generative AI Terms for details.
+    </p>
+
+    <!-- Content Safety -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; CONTENT SAFETY</h2>
+    <p class="text-foreground/70 leading-relaxed mb-10">
+      Characters operate within prompt-level guardrails that enforce: educational
+      focus, no romantic or sexual content, no violence glorification, age-appropriate
+      emotional boundaries. Blocked historical figures (perpetrators of genocide,
+      serial crime) receive a "this line is disconnected" redirect to witnesses or
+      resistors of the same events. Characters never encourage dependency, guilt,
+      or parasocial attachment.
+    </p>
+
+    <!-- AI Content -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; AI CONTENT</h2>
+    <p class="text-foreground/70 leading-relaxed mb-10">
+      Characters are AI-generated via Google Gemini. Historical statements
+      may contain inaccuracies. Do not cite conversations as primary sources.
+      Always verify with your teacher or textbook.
+    </p>
+
+    <!-- For Minors -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; FOR MINORS</h2>
+    <p class="text-foreground/70 leading-relaxed mb-10">
+      This demo is designed for students aged 13–18. We do not knowingly
+      collect data from children under 13. If you are under 13, please use
+      this with a parent or guardian present.
+    </p>
+
+    <!-- Contact -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; CONTACT</h2>
+    <p class="text-foreground/70 leading-relaxed mb-10">
+      This is an open-source hackathon project.<br />
+      GitHub: link available after submission
+    </p>
+
+    <!-- Back to app -->
+    <h2 class="text-accent text-xs tracking-[0.15em] uppercase mb-4">&gt; BACK TO APP</h2>
+    <a
+      href="/app"
+      class="inline-block font-mono text-xs tracking-[0.12em] uppercase border border-accent/30 text-accent/60 hover:border-accent/60 hover:text-accent/80 transition-colors px-6 py-3 rounded-sm"
+      aria-label="Go back to the app"
+    >
+      [ return to past, live ]
+    </a>
+
+  </main>
+</BaseLayout>

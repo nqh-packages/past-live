@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Past, Live — Test Call</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui; background: #111; color: #eee; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 20px; padding: 20px; }
+  h1 { font-size: 1.5rem; opacity: 0.6; }
+  #status { font-size: 1.1rem; color: #aaa; }
+  #transcript { width: 100%; max-width: 600px; min-height: 300px; max-height: none; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 16px; font-size: 0.9rem; line-height: 1.6; }
+  .them { color: #7cb3ff; opacity: 0; animation: fadeIn 0.8s ease-out 1.2s forwards; }
+  .you { color: #7cff7c; }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .system { color: #ff7c7c; font-style: italic; }
+  button { padding: 16px 32px; font-size: 1.1rem; border: none; border-radius: 50px; cursor: pointer; }
+  #callBtn { background: #22c55e; color: #000; font-weight: bold; }
+  #callBtn:hover { background: #16a34a; }
+  #callBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
+  #hangupBtn { background: #ef4444; color: #fff; font-weight: bold; display: none; }
+  #hangupBtn:hover { background: #dc2626; }
+  .controls { display: flex; gap: 12px; }
+  #timer { font-family: monospace; font-size: 1.2rem; color: #aaa; }
+  #micLevel { width: 200px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+  #micLevelBar { height: 100%; background: #22c55e; width: 0%; transition: width 50ms; }
+  #textInput { background: #222; border: 1px solid #444; color: #eee; padding: 8px 16px; border-radius: 8px; width: 100%; max-width: 400px; font-size: 1rem; display: none; }
+</style>
+</head>
+<body>
+
+<h1>Past, Live — Test Call</h1>
+<div id="status">Ready. Click to call a random historical figure.</div>
+<div id="timer"></div>
+<div id="micLevel"><div id="micLevelBar"></div></div>
+<div id="transcript"></div>
+<input id="textInput" type="text" placeholder="Type a message and press Enter..." />
+<div class="controls">
+  <button id="callBtn" onclick="startCall()">Call Someone</button>
+  <button id="hangupBtn" onclick="hangUp()">Hang Up</button>
+</div>
+
+<script>
+const WS_URL = 'ws://localhost:8787/ws';
+const CHARACTERS = [
+  // Africa
+  { name: 'Mansa Musa', setting: 'Mali Empire, 1324', voice: 'Orus' },
+  { name: 'Nzinga Mbande', setting: 'Kingdom of Ndongo, 1626', voice: 'Kore' },
+  { name: 'Shaka Zulu', setting: 'KwaZulu, 1820', voice: 'Algenib' },
+  { name: 'Hatshepsut', setting: 'Egypt, 1470 BC', voice: 'Gacrux' },
+
+  // East Asia
+  { name: 'Zheng He', setting: 'Ming Dynasty treasure fleet, 1405', voice: 'Charon' },
+  { name: 'Murasaki Shikibu', setting: 'Heian Japan, 1008', voice: 'Sulafat' },
+  { name: 'Sun Tzu', setting: 'Kingdom of Wu, 500 BC', voice: 'Schedar' },
+  { name: 'Yi Sun-sin', setting: 'Joseon Korea, 1592', voice: 'Alnilam' },
+
+  // South & Southeast Asia
+  { name: 'Ashoka', setting: 'Maurya Empire, 260 BC', voice: 'Umbriel' },
+  { name: 'Razia Sultana', setting: 'Delhi Sultanate, 1236', voice: 'Erinome' },
+
+  // Middle East & Central Asia
+  { name: 'Saladin', setting: 'Jerusalem, 1187', voice: 'Rasalgethi' },
+  { name: 'Ibn Battuta', setting: 'Tangier to Delhi, 1345', voice: 'Algieba' },
+  { name: 'Cyrus the Great', setting: 'Persia, 539 BC', voice: 'Orus' },
+
+  // Americas
+  { name: 'Harriet Tubman', setting: 'Maryland, 1849', voice: 'Sulafat' },
+  { name: 'Sitting Bull', setting: 'Little Bighorn, 1876', voice: 'Algenib' },
+  { name: 'Pachacuti', setting: 'Cusco, Inca Empire, 1438', voice: 'Umbriel' },
+  { name: 'Sor Juana Ines de la Cruz', setting: 'Mexico City, 1690', voice: 'Despina' },
+
+  // Europe
+  { name: 'Constantine XI', setting: 'Constantinople, 1453', voice: 'Gacrux' },
+  { name: 'Diogenes', setting: 'Athens, 335 BC', voice: 'Fenrir' },
+  { name: 'Leonardo da Vinci', setting: 'Florence, 1502', voice: 'Puck' },
+  { name: 'Marie Curie', setting: 'Paris, 1903', voice: 'Kore' },
+  { name: 'Ada Lovelace', setting: 'London, 1843', voice: 'Vindemiatrix' },
+
+  // Mongol / Steppe
+  { name: 'Jamukha', setting: 'Mongol Steppe, 1206', voice: 'Algenib' },
+  { name: 'Khutulun', setting: 'Mongol Empire, 1280', voice: 'Laomedeia' },
+
+  // Oceania
+  { name: 'Kupe', setting: 'Polynesian voyage to Aotearoa, 1250', voice: 'Achird' },
+
+  // Space / Modern
+  { name: 'Gene Kranz', setting: 'Houston Mission Control, 1969', voice: 'Charon' },
+  { name: 'Mae Jemison', setting: 'Space Shuttle Endeavour, 1992', voice: 'Callirrhoe' },
+];
+
+let ws = null;
+let playbackCtx = null;
+let micStream = null;
+let micWorklet = null;
+let startTime = null;
+let timerInterval = null;
+let currentChar = null;
+// Real-time streaming: append to current line, start new line after silence
+let audioChunkCount = 0;
+let lastAudioLogTime = 0;
+let currentOutputEl = null;
+let currentInputEl = null;
+let outputTimeout = null;
+let inputTimeout = null;
+
+function elapsedSec() {
+  if (!startTime) return 0;
+  return ((Date.now() - startTime) / 1000);
+}
+
+function elapsed() {
+  if (!startTime) return '';
+  return `[${elapsedSec().toFixed(1)}s] `;
+}
+
+// Structured frontend logger — console + UI
+function flog(event, detail = {}) {
+  const entry = { t: elapsedSec().toFixed(1), event, ...detail };
+  console.log(`[past-live] ${entry.t}s ${event}`, detail);
+  return entry;
+}
+
+function log(text, cls = 'system') {
+  const div = document.getElementById('transcript');
+  div.innerHTML += `<div class="${cls}">${elapsed()}${text}</div>`;
+  div.scrollTop = div.scrollHeight;
+}
+
+function setStatus(text) {
+  document.getElementById('status').textContent = text;
+}
+
+function updateTimer() {
+  if (!startTime) return;
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const min = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const sec = String(elapsed % 60).padStart(2, '0');
+  document.getElementById('timer').textContent = `${min}:${sec}`;
+}
+
+async function startCall() {
+  currentChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+
+  document.getElementById('callBtn').disabled = true;
+  document.getElementById('hangupBtn').style.display = 'inline-block';
+  document.getElementById('textInput').style.display = 'block';
+  document.getElementById('transcript').innerHTML = '';
+
+  setStatus(`Calling ${currentChar.name} (${currentChar.setting})...`);
+  log(`Dialing ${currentChar.name}, ${currentChar.setting}...`);
+  log(`Voice: ${currentChar.voice}`);
+
+  // Playback context at 24kHz for Gemini output
+  playbackCtx = new AudioContext({ sampleRate: 24000 });
+
+  // Request mic at native rate — we'll downsample to 16kHz
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      }
+    });
+    log('Mic access granted.', 'system');
+  } catch (e) {
+    log(`Mic denied: ${e.message}. Text-only mode.`, 'system');
+  }
+
+  // WebSocket
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    log('WebSocket connected. Sending start...', 'system');
+    ws.send(JSON.stringify({
+      type: 'start',
+      topic: `${currentChar.name}, ${currentChar.setting}`,
+      characterName: currentChar.name,
+      historicalSetting: currentChar.setting,
+      voiceName: currentChar.voice,
+    }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    switch (msg.type) {
+      case 'connected':
+        setStatus(`Connected to ${currentChar.name}`);
+        log('Connected! Speak to interrupt anytime.', 'system');
+        startTime = Date.now();
+        flog('connected', { sessionId: msg.sessionId, character: currentChar.name });
+        timerInterval = setInterval(updateTimer, 1000);
+        if (micStream) startMicCapture();
+        break;
+
+      case 'audio':
+        audioChunkCount++;
+        if (audioChunkCount === 1) flog('first_audio_chunk');
+        if (audioChunkCount % 50 === 0) flog('audio_chunks', { count: audioChunkCount });
+        queueAudio(msg.data);
+        break;
+
+      case 'output_transcription':
+        // Output transcription is delta (new words only) — append is correct here
+        if (!currentOutputEl) {
+          currentOutputEl = document.createElement('div');
+          currentOutputEl.className = 'them';
+          currentOutputEl.textContent = `${elapsed()}[${currentChar.name}] `;
+          document.getElementById('transcript').appendChild(currentOutputEl);
+        }
+        currentOutputEl.textContent += msg.text;
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        clearTimeout(outputTimeout);
+        outputTimeout = setTimeout(() => { currentOutputEl = null; }, 3000);
+        break;
+
+      case 'input_transcription':
+        // Gemini sends deltas (word fragments), not cumulative — append to current element
+        if (!currentInputEl) {
+          currentInputEl = document.createElement('div');
+          currentInputEl.className = 'you';
+          currentInputEl.textContent = `${elapsed()}[YOU] `;
+          document.getElementById('transcript').appendChild(currentInputEl);
+        }
+        currentInputEl.textContent += msg.text;
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        clearTimeout(inputTimeout);
+        // 3s timeout — speech has natural pauses >1s mid-sentence. 1s was splitting sentences.
+        inputTimeout = setTimeout(() => { currentInputEl = null; }, 3000);
+        break;
+
+      case 'turn_complete':
+        // Seal current output line — model finished speaking
+        currentOutputEl = null;
+        currentInputEl = null;
+        clearTimeout(outputTimeout);
+        clearTimeout(inputTimeout);
+        break;
+
+      case 'interrupted':
+        currentOutputEl = null;
+        currentInputEl = null;
+        flog('interrupted', { audioChunksPlayed: audioChunkCount });
+        log('--- interrupted ---', 'system');
+        clearAudioQueue();
+        break;
+
+      case 'choices': {
+        log('--- CHOICES ---', 'system');
+        const choicesDiv = document.createElement('div');
+        choicesDiv.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin:8px 0;';
+        msg.choices.forEach((c) => {
+          const btn = document.createElement('button');
+          btn.style.cssText = 'background:#2a2a3a;color:#eee;border:1px solid #444;border-radius:8px;padding:10px 14px;text-align:left;cursor:pointer;font-size:0.85rem;';
+          btn.innerHTML = `<strong>${c.title}</strong><br><span style="opacity:0.7">${c.description}</span>`;
+          btn.onclick = () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'text', text: c.title }));
+              log(`[YOU] ${c.title}`, 'you');
+              choicesDiv.remove();
+            }
+          };
+          choicesDiv.appendChild(btn);
+        });
+        document.getElementById('transcript').appendChild(choicesDiv);
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        break;
+      }
+
+      case 'speaker_switch':
+        log(`[Speaker: ${msg.name}]`, 'system');
+        break;
+
+      case 'tool_call':
+        flog('tool_call', { name: msg.name, args: msg.args });
+        log(`TOOL: ${msg.name}(${JSON.stringify(msg.args).slice(0, 100)})`, 'system');
+        break;
+
+      case 'scene_image': {
+        flog('scene_image_received', { title: msg.title, imageSize: msg.image?.length });
+        log(`IMAGE RECEIVED: ${msg.title}`, 'system');
+        const imgDiv = document.createElement('div');
+        imgDiv.className = 'system';
+        imgDiv.innerHTML = `<em>${msg.title}</em><br><img src="data:image/png;base64,${msg.image}" style="max-width:100%;border-radius:8px;margin-top:8px;" />`;
+        document.getElementById('transcript').appendChild(imgDiv);
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        break;
+      }
+
+      case 'ended':
+        flog('call_ended', { reason: msg.reason, hasSummary: !!msg.summary, audioChunks: audioChunkCount, duration: elapsedSec() });
+        setStatus('Call ended.');
+        log(`Call ended: ${msg.reason}`, 'system');
+        if (msg.summary) {
+          log('--- SUMMARY ---', 'system');
+          if (msg.summary.keyFacts) msg.summary.keyFacts.forEach(f => log(`  - ${f}`, 'system'));
+          if (msg.summary.characterMessage) log(`"${msg.summary.characterMessage}"`, 'them');
+        }
+        cleanup();
+        break;
+
+      case 'error':
+        flog('error', { message: msg.message });
+        log(`Error: ${msg.message}`, 'system');
+        break;
+    }
+  };
+
+  ws.onclose = () => { flog('ws_close'); log('Disconnected.', 'system'); cleanup(); };
+  ws.onerror = (e) => { flog('ws_error', { error: String(e) }); log('WebSocket error.', 'system'); cleanup(); };
+}
+
+// ─── Mic capture with downsampling to 16kHz ─────────────────────────────────
+
+function startMicCapture() {
+  // Use ScriptProcessor for broad browser compat
+  // Mic runs at browser's native rate (usually 48kHz) — downsample to 16kHz
+  const micCtx = new AudioContext();
+  const nativeRate = micCtx.sampleRate; // typically 48000
+  const targetRate = 16000;
+  const ratio = nativeRate / targetRate;
+
+  const source = micCtx.createMediaStreamSource(micStream);
+  const processor = micCtx.createScriptProcessor(4096, 1, 1);
+
+  // Mic level visualization
+  const analyser = micCtx.createAnalyser();
+  analyser.fftSize = 256;
+  source.connect(analyser);
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  setInterval(() => {
+    analyser.getByteFrequencyData(dataArray);
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+    document.getElementById('micLevelBar').style.width = `${Math.min(100, avg * 1.5)}%`;
+  }, 50);
+
+  processor.onaudioprocess = (e) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const input = e.inputBuffer.getChannelData(0);
+
+    // Downsample: pick every Nth sample
+    const outputLength = Math.floor(input.length / ratio);
+    const int16 = new Int16Array(outputLength);
+
+    for (let i = 0; i < outputLength; i++) {
+      const srcIdx = Math.floor(i * ratio);
+      const sample = Math.max(-1, Math.min(1, input[srcIdx]));
+      int16[i] = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+    }
+
+    // Convert to base64
+    const bytes = new Uint8Array(int16.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+
+    ws.send(JSON.stringify({
+      type: 'audio',
+      data: base64,
+      mimeType: 'audio/pcm;rate=16000'
+    }));
+  };
+
+  source.connect(processor);
+  processor.connect(micCtx.destination); // required for ScriptProcessor to fire
+}
+
+// ─── Audio playback with queue + interruption ───────────────────────────────
+
+let audioQueue = [];
+let currentSource = null;
+let nextPlayTime = 0;
+
+function queueAudio(base64) {
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const int16 = new Int16Array(bytes.buffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+  const buffer = playbackCtx.createBuffer(1, float32.length, 24000);
+  buffer.copyToChannel(float32, 0);
+
+  const source = playbackCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(playbackCtx.destination);
+
+  // Schedule seamlessly
+  const now = playbackCtx.currentTime;
+  const startAt = Math.max(now, nextPlayTime);
+  source.start(startAt);
+  nextPlayTime = startAt + buffer.duration;
+  currentSource = source;
+
+  audioQueue.push(source);
+  source.onended = () => {
+    const idx = audioQueue.indexOf(source);
+    if (idx !== -1) audioQueue.splice(idx, 1);
+  };
+}
+
+function clearAudioQueue() {
+  for (const src of audioQueue) {
+    try { src.stop(); } catch {}
+  }
+  audioQueue = [];
+  nextPlayTime = 0;
+  currentSource = null;
+}
+
+// ─── Text input ──────────────────────────────────────────────────────────────
+
+document.getElementById('textInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && ws && ws.readyState === WebSocket.OPEN) {
+    const input = e.target;
+    const text = input.value.trim();
+    if (text) {
+      ws.send(JSON.stringify({ type: 'text', text }));
+      log(`[YOU] ${text}`, 'you');
+      input.value = '';
+    }
+  }
+});
+
+// ─── Controls ────────────────────────────────────────────────────────────────
+
+function hangUp() {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+  cleanup();
+  setStatus('You hung up.');
+  log('You hung up.', 'system');
+}
+
+function cleanup() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  clearAudioQueue();
+  document.getElementById('callBtn').disabled = false;
+  document.getElementById('hangupBtn').style.display = 'none';
+  document.getElementById('textInput').style.display = 'none';
+  startTime = null;
+}
+</script>
+</body>
+</html>

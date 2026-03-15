@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Build output
+dist/
+server/dist/
+.astro/
+.wrangler/
+
+# Environment (never commit real secrets)
+.env
+.env.local
+.dev.vars
+server/.env
+server/.env.local
+
+# Logs
+logs/
+*.log
+server/logs/
+
+# Test artifacts
+coverage/
+server/coverage/
+
+# Editor
+.DS_Store
+.vscode/settings.json

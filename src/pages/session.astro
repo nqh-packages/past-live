@@ -1,0 +1,200 @@
+---
+/**
+ * @what - Session screen for Past, Live — in-call UI
+ * @why - Phone call layout: character portrait banner, timer, chat log, choice cards, call controls
+ */
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SessionManager from "@/components/SessionManager.svelte";
+import SessionCallControls from "@/components/SessionCallControls.svelte";
+import ChatLog from "@/components/ChatLog.svelte";
+import SpeakingIndicator from "@/components/SpeakingIndicator.svelte";
+import SessionTimer from "@/components/SessionTimer.svelte";
+import SessionInput from "@/components/SessionInput.svelte";
+import SessionChoiceCards from "@/components/SessionChoiceCards.svelte";
+import SceneImageDisplay from "@/components/SceneImageDisplay.svelte";
+
+import { SCENARIO_IDS, CALL_LABELS } from "@/lib/scenarios";
+
+const url = new URL(Astro.request.url);
+const scenarioId = url.searchParams.get("scenario") ?? undefined;
+const topic = url.searchParams.get("topic") ?? undefined;
+const micParam = url.searchParams.get("mic") === "1";
+
+// Guard: no valid session params → redirect to home
+if (!scenarioId && !topic) return Astro.redirect('/app');
+
+// Guard: unknown scenario ID → redirect to home (prevents raw IDs rendering in callLabel)
+if (scenarioId && !SCENARIO_IDS.includes(scenarioId)) return Astro.redirect('/app');
+
+// VITE_* not available in Svelte islands — must pass as prop from Astro page
+const backendWsUrl = import.meta.env.PUBLIC_BACKEND_WS_URL ?? "ws://localhost:8787/ws";
+
+// Build human-readable call label (character name + era)
+const callLabel = scenarioId
+  ? (CALL_LABELS[scenarioId] ?? scenarioId)
+  : topic
+  ? `calling: ${topic}`
+  : "call in progress";
+---
+
+<BaseLayout title="Past, Live — Connected">
+  <!--
+    Story palette injection: reads OKLCH values from sessionStorage (set by SessionPreview overlay)
+    and applies them as CSS custom properties on :root so the entire in-call screen inherits
+    the era-specific atmosphere. Validates OKLCH syntax before applying to prevent injection.
+
+    Palette indices (matching Flash generation constraints):
+      0 → background  (L: 8-15%)
+      1 → surface     (L: 12-20%)
+      2 → accent      (L: 55-75%)
+      3 → foreground  (L: 85-95%)
+      4 → muted       (L: 30-45%)
+
+    Also derives:
+      --color-border       — foreground at 6% opacity (era-tinted thin lines)
+      --color-accent-glow  — accent at 20% opacity (era-tinted glow)
+  -->
+  <script is:inline>
+    (function() {
+      var OKLCH_RE = /^oklch\(\s*[\d.]+%?\s+[\d.]+\s+[\d.]+\s*\)$/;
+      try {
+        var raw = sessionStorage.getItem('past-live:preview');
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        var palette = data && Array.isArray(data.colorPalette) ? data.colorPalette : [];
+        if (palette.length < 5) return;
+        // Contrast guard: foreground (index 3) must be at least 40 lightness points
+        // above background (index 0) — bail if palette is low-contrast.
+        var fgMatch = palette[3] && String(palette[3]).match(/oklch\(\s*([\d.]+)%/);
+        var bgMatch = palette[0] && String(palette[0]).match(/oklch\(\s*([\d.]+)%/);
+        if (fgMatch && bgMatch) {
+          var diff = parseFloat(fgMatch[1]) - parseFloat(bgMatch[1]);
+          if (diff < 40) return;
+        }
+        var root = document.documentElement;
+        // Apply the 5 core story palette variables — these override the system (war-room) palette
+        // for the entire in-call screen. Body, text, borders, and accents all inherit from here.
+        var coreProps = [
+          '--color-background',
+          '--color-surface',
+          '--color-accent',
+          '--color-foreground',
+          '--color-muted',
+        ];
+        palette.forEach(function(val, i) {
+          if (coreProps[i] && OKLCH_RE.test(String(val).trim())) {
+            root.style.setProperty(coreProps[i], val);
+          }
+        });
+        // Derive border and glow from the story palette so borders and focus rings stay era-tinted.
+        // Uses oklch(...) with / alpha syntax (CSS Color Level 4 — supported in all modern browsers).
+        var accentVal = String(palette[2]).trim();
+        var fgVal = String(palette[3]).trim();
+        // Extract OKLCH components for alpha variants: oklch(L C H) → oklch(L C H / alpha)
+        var accentMatch = accentVal.match(/oklch\(\s*([\d.]+%?\s+[\d.]+\s+[\d.]+)\s*\)/);
+        var fgValMatch = fgVal.match(/oklch\(\s*([\d.]+%?\s+[\d.]+\s+[\d.]+)\s*\)/);
+        if (fgValMatch) {
+          root.style.setProperty('--color-border', 'oklch(' + fgValMatch[1] + ' / 0.06)');
+        }
+        if (accentMatch) {
+          root.style.setProperty('--color-accent-glow', 'oklch(' + accentMatch[1] + ' / 0.20)');
+        }
+      } catch(_) {}
+    })();
+  </script>
+
+  <!-- SessionManager: invisible orchestrator — WS lifecycle, countdown, auto-mic -->
+  <SessionManager
+    client:only="svelte"
+    scenarioId={scenarioId}
+    topic={topic}
+    backendWsUrl={backendWsUrl}
+    mic={micParam}
+  />
+
+  <main id="main-content" class="flex flex-col min-h-screen min-h-dvh px-4 sm:px-5 lg:px-8 py-6 sm:py-8 max-w-md lg:max-w-2xl mx-auto">
+
+    <!-- Call header: character name + era + timer -->
+    <header class="w-full mb-4">
+      <div class="relative pl-[72px]">
+        <div class="absolute top-0 left-[60px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
+        <!-- Avatar badge: small circular character portrait, hydrated from sessionStorage -->
+        <div
+          class="absolute top-0 left-0 w-8 h-8 rounded-full border border-accent/20 overflow-hidden bg-surface"
+          id="avatar-badge"
+          aria-label="Character portrait"
+        >
+          <span class="flex items-center justify-center h-full text-2xs text-foreground/20" id="avatar-placeholder"></span>
+        </div>
+        <div class="font-mono text-xs text-accent tracking-[0.12em] uppercase">
+          &gt; connected
+        </div>
+        <h1 class="font-mono text-xs text-foreground/30 mt-0.5 font-normal">
+          &gt; {callLabel}
+        </h1>
+      </div>
+
+      <!-- Timer: counts up, always visible -->
+      <div class="w-full pl-[72px] mt-2">
+        <SessionTimer client:load />
+      </div>
+    </header>
+
+    <!-- Scene image display: shows portrait initially, swaps to AI-generated scene images mid-call -->
+    <div class="w-full mb-4">
+      <SceneImageDisplay client:load />
+    </div>
+
+    <!-- Avatar badge hydration from sessionStorage — small circular portrait in header -->
+    <script is:inline>
+      (function() {
+        try {
+          var raw = sessionStorage.getItem('past-live:preview');
+          if (!raw) return;
+          var data = JSON.parse(raw);
+          if (data && data.avatar) {
+            var badge = document.getElementById('avatar-badge');
+            var avatarPlaceholder = document.getElementById('avatar-placeholder');
+            if (badge && avatarPlaceholder) {
+              var avatarImg = document.createElement('img');
+              avatarImg.src = 'data:image/jpeg;base64,' + data.avatar;
+              avatarImg.alt = (data.characterName || 'Character') + ' portrait';
+              avatarImg.className = 'w-full h-full object-cover';
+              avatarImg.width = 32;
+              avatarImg.height = 32;
+              avatarPlaceholder.remove();
+              badge.appendChild(avatarImg);
+            }
+          }
+        } catch(_) {}
+      })();
+    </script>
+
+    <!-- Speaking indicator (waveform bars while model speaks) -->
+    <div class="flex justify-center mb-3">
+      <SpeakingIndicator client:load />
+    </div>
+
+    <!-- Chat log (character-named messages) — scrollable, flex-1 fills remaining space -->
+    <!-- min-h-[120px]: ensures chat log is usable on iPhone SE (375x667) where vertical space is tight -->
+    <div class="w-full mb-4 flex-1 min-h-[120px]">
+      <ChatLog client:load />
+    </div>
+
+    <!-- Choice cards — shown when announce_choice tool fires -->
+    <div class="w-full mb-3">
+      <SessionChoiceCards client:load />
+    </div>
+
+    <!-- Call controls: [speaker] [hang up] [mute] -->
+    <div class="flex justify-center mb-3">
+      <SessionCallControls client:only="svelte" />
+    </div>
+
+    <!-- Text input — always visible, sends via WebSocket -->
+    <div class="w-full pb-safe">
+      <SessionInput client:load />
+    </div>
+  </main>
+</BaseLayout>

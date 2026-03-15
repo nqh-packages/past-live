@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Serif:ital@0;1&family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 2560px;
+    height: 1664px;
+    background: #0f0f0f;
+    font-family: 'Space Mono', monospace;
+    color: #e8e0d8;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ─── Red glow ─── */
+  .glow-1 {
+    position: absolute;
+    width: 1100px; height: 1100px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,60,40,0.06), transparent 65%);
+    top: 50%; left: 45%; transform: translate(-50%,-50%);
+    pointer-events: none; z-index: 1;
+  }
+  .glow-2 {
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,60,40,0.03), transparent 65%);
+    top: -100px; right: 300px;
+    pointer-events: none; z-index: 1;
+  }
+
+  /* ─── Scanlines ─── */
+  .scanlines {
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.012) 0px,
+      rgba(255,255,255,0.012) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+    pointer-events: none; z-index: 80;
+  }
+
+  /* ─── Film grain ─── */
+  .grain {
+    position: fixed; inset: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+    z-index: 85;
+  }
+
+  /* ─── Vignette ─── */
+  body::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.5));
+    pointer-events: none; z-index: 90;
+  }
+
+  /* ─── Grid ─── */
+  .grid-bg {
+    position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(to right, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 80px),
+      repeating-linear-gradient(to bottom, rgba(255,255,255,0.008) 0px, rgba(255,255,255,0.008) 1px, transparent 1px, transparent 80px);
+    pointer-events: none; z-index: 1;
+  }
+
+  /* ─── Dispatch margin ─── */
+  .dispatch-margin {
+    position: absolute;
+    top: 0; bottom: 0; left: 70px;
+    width: 1px;
+    background: rgba(255,60,40,0.06);
+    z-index: 2;
+  }
+
+  /* ═══ ATMOSPHERE ═══ */
+
+  .year-ghost {
+    position: absolute;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 320px;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.018);
+    pointer-events: none; z-index: 1;
+  }
+
+  .corner-mark {
+    position: absolute;
+    width: 36px; height: 36px;
+    border-color: rgba(255,255,255,0.04);
+    border-style: solid; z-index: 2;
+  }
+  .cm-tl { top: 48px; left: 48px; border-width: 2px 0 0 2px; }
+  .cm-tr { top: 48px; right: 48px; border-width: 2px 2px 0 0; }
+  .cm-bl { bottom: 48px; left: 48px; border-width: 0 0 2px 2px; }
+  .cm-br { bottom: 48px; right: 48px; border-width: 0 2px 2px 0; }
+
+  .ghost-text {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    color: rgba(232,224,216,0.05);
+    z-index: 2;
+  }
+
+  .cross-mark {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: rgba(232,224,216,0.05);
+    z-index: 2;
+  }
+
+  .rule-line {
+    position: absolute;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.025) 15%, rgba(255,255,255,0.025) 85%, transparent);
+    z-index: 2;
+  }
+
+  .vertical-label {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(232,224,216,0.03);
+    writing-mode: vertical-rl;
+    z-index: 2;
+  }
+
+  .class-badge {
+    position: absolute;
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,60,40,0.2);
+    border: 1px solid rgba(255,60,40,0.08);
+    padding: 3px 10px;
+    z-index: 3;
+  }
+
+  .dot-grid {
+    position: absolute; z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(8, 10px);
+    gap: 7px;
+  }
+  .dot-grid .d {
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: rgba(232,224,216,0.03);
+  }
+  .dot-grid .d.a { background: rgba(255,60,40,0.1); }
+
+  .arc-seg {
+    position: absolute;
+    width: 180px; height: 180px;
+    border: 1px solid rgba(255,255,255,0.015);
+    border-radius: 50%;
+    z-index: 2;
+  }
+
+  .stripe-cluster {
+    position: absolute;
+    display: flex; gap: 4px; align-items: flex-end;
+    z-index: 2;
+  }
+  .stripe {
+    width: 3px;
+    background: rgba(255,255,255,0.02);
+    border-radius: 1px;
+  }
+
+  .interference {
+    position: absolute;
+    height: 1px;
+    background: rgba(255,255,255,0.012);
+    z-index: 2;
+  }
+
+  /* ═══ TITLE — top left ═══ */
+
+  .title-block {
+    position: absolute;
+    top: 60px; left: 100px;
+    z-index: 15;
+  }
+
+  .app-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 110px;
+    letter-spacing: 3px;
+    line-height: 0.85;
+  }
+  .app-title .past {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    color: rgba(232,224,216,0.5);
+    font-size: 90px;
+    letter-spacing: 1px;
+  }
+  .app-title .comma {
+    color: rgba(232,224,216,0.2);
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 90px;
+  }
+  .app-title .live {
+    color: #ff3c28;
+    display: block;
+  }
+
+  .tagline {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: rgba(232,224,216,0.25);
+    margin-top: 14px;
+  }
+
+  .app-meta {
+    margin-top: 28px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(232,224,216,0.12);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    line-height: 2.2;
+  }
+
+  /* ═══ CALL LIST — full canvas hero ═══ */
+
+  .call-list-hero {
+    position: absolute;
+    top: 50%; left: 720px;
+    transform: translateY(-47%);
+    z-index: 10;
+    width: 900px;
+  }
+
+  .recents-header {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    letter-spacing: 4px;
+    color: rgba(232,224,216,0.6);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .segment-ctrl {
+    display: inline-flex;
+    gap: 0;
+    margin-bottom: 24px;
+  }
+  .seg {
+    padding: 5px 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(232,224,216,0.2);
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+  .seg.active {
+    color: rgba(232,224,216,0.5);
+    background: rgba(255,255,255,0.03);
+    border-color: rgba(255,255,255,0.06);
+  }
+  .seg.missed-seg {
+    color: rgba(255,60,40,0.4);
+    border-color: rgba(255,60,40,0.08);
+  }
+
+  /* Call rows */
+  .call-row {
+    display: flex;
+    align-items: center;
+    padding: 16px 0;
+    gap: 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.025);
+    position: relative;
+  }
+  .call-row:last-child { border-bottom: none; }
+
+  .call-avatar {
+    width: 48px; height: 48px;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 1px;
+    color: #0f0f0f;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .badge {
+    position: absolute;
+    top: -6px; right: -8px;
+    background: #ff3c28;
+    color: #0f0f0f;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    min-width: 18px; height: 18px;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    border: 2px solid #0f0f0f;
+  }
+
+  .call-info { flex: 1; min-width: 0; }
+
+  .call-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: #ff3c28;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .missed-dot {
+    width: 6px; height: 6px;
+    background: #ff3c28;
+    flex-shrink: 0;
+  }
+
+  .call-detail {
+    font-size: 11px;
+    color: rgba(232,224,216,0.25);
+    margin-top: 3px;
+    letter-spacing: 0.3px;
+  }
+
+  .call-teaser-inline {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: rgba(232,224,216,0.22);
+    margin-top: 5px;
+    max-width: 550px;
+  }
+
+  .call-time {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: rgba(232,224,216,0.15);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 100px;
+    text-align: right;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .call-chev {
+    color: rgba(255,60,40,0.15);
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  /* ═══ Quote — bottom left ═══ */
+
+  .quote-block {
+    position: absolute;
+    bottom: 100px; left: 100px;
+    z-index: 12;
+    padding: 18px 24px;
+    background: rgba(255,255,255,0.015);
+    border-left: 2px solid rgba(255,60,40,0.15);
+    max-width: 400px;
+  }
+  .quote-block .qt {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: rgba(232,224,216,0.3);
+    line-height: 1.55;
+  }
+  .quote-block .qa {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: rgba(232,224,216,0.12);
+    margin-top: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ═══ Scenario card — top right ═══ */
+
+  .scenario-card {
+    position: absolute;
+    top: 85px; right: 100px;
+    z-index: 12;
+    background: rgba(255,255,255,0.015);
+    border: 1px solid rgba(255,255,255,0.03);
+    padding: 16px 20px;
+  }
+  .sc-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,60,40,0.25);
+    margin-bottom: 8px;
+  }
+  .sc-field {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: rgba(232,224,216,0.25);
+    line-height: 2;
+  }
+  .sc-field span { color: rgba(232,224,216,0.1); }
+
+  /* ═══ Loading — bottom right ═══ */
+
+  .loading-card {
+    position: absolute;
+    bottom: 100px; right: 100px;
+    z-index: 12;
+    background: rgba(255,255,255,0.01);
+    border: 1px solid rgba(255,255,255,0.02);
+    padding: 14px 18px;
+  }
+  .lc {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: rgba(232,224,216,0.15);
+    line-height: 2.2;
+  }
+  .lc .gt { color: rgba(255,60,40,0.25); }
+
+  /* ═══ Constantine portrait — hero left ═══ */
+
+  .constantine-portrait {
+    position: absolute;
+    top: 50%; left: 100px;
+    transform: translateY(-50%);
+    width: 580px; height: 580px;
+    z-index: 12;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .constantine-portrait img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    mask-image: radial-gradient(ellipse 90% 90% at center, black 30%, transparent 72%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 90% at center, black 30%, transparent 72%);
+  }
+
+  /* ═══ Stack badges ═══ */
+
+  .stack-badges {
+    position: absolute;
+    bottom: 55px; left: 50%;
+    transform: translateX(-30%);
+    z-index: 8;
+    display: flex; gap: 8px;
+  }
+  .stack-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.4px;
+    text-transform: lowercase;
+    color: rgba(232,224,216,0.1);
+    background: rgba(255,255,255,0.01);
+    border: 1px solid rgba(255,255,255,0.025);
+    padding: 3px 9px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Overlays -->
+<div class="scanlines"></div>
+<div class="grain"></div>
+<div class="grid-bg"></div>
+<div class="glow-1"></div>
+<div class="glow-2"></div>
+<div class="dispatch-margin"></div>
+
+<!-- Atmosphere -->
+<div class="year-ghost" style="top:-20px; left:40px;">1482</div>
+<div class="year-ghost" style="bottom:-40px; right:50px;">1324</div>
+<div class="year-ghost" style="top:420px; right:-60px; transform:rotate(-90deg); font-size:260px;">1405</div>
+
+<div class="corner-mark cm-tl"></div>
+<div class="corner-mark cm-tr"></div>
+<div class="corner-mark cm-bl"></div>
+<div class="corner-mark cm-br"></div>
+
+<div class="ghost-text" style="top:92px; left:460px;">31.2001° N, 29.9187° E</div>
+<div class="ghost-text" style="bottom:85px; right:520px;">PCM 24KHZ MONO 16BIT LE</div>
+<div class="ghost-text" style="top:780px; left:52px; transform:rotate(-90deg);">GEMINI LIVE v1alpha</div>
+<div class="ghost-text" style="top:320px; right:42px; transform:rotate(90deg);">WebSocket :: relay :: connect</div>
+<div class="ghost-text" style="bottom:55px; left:580px;">session.sendRealtimeInput({ audio: base64 })</div>
+
+<div class="cross-mark" style="top:260px; left:88px;">+</div>
+<div class="cross-mark" style="top:620px; right:130px;">+</div>
+<div class="cross-mark" style="bottom:280px; left:360px;">+</div>
+<div class="cross-mark" style="top:150px; left:920px;">+</div>
+<div class="cross-mark" style="bottom:400px; right:80px;">+</div>
+
+<div class="rule-line" style="top:180px; left:0; right:0;"></div>
+<div class="rule-line" style="bottom:210px; left:0; right:0;"></div>
+
+<div class="vertical-label" style="left:54px; top:400px;">transmission</div>
+<div class="vertical-label" style="right:52px; top:480px;">incoming</div>
+
+<div class="class-badge" style="top:105px; left:460px;">DECLASSIFIED</div>
+<div class="class-badge" style="bottom:225px; left:500px;">LIVE SIGNAL</div>
+
+<div class="dot-grid" style="top:115px; right:460px;">
+  <div class="d"></div><div class="d"></div><div class="d a"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d a"></div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="d a"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d a"></div>
+  <div class="d"></div><div class="d"></div><div class="d"></div><div class="d a"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div>
+</div>
+<div class="dot-grid" style="bottom:150px; left:480px;">
+  <div class="d"></div><div class="d a"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div>
+  <div class="d"></div><div class="d"></div><div class="d"></div><div class="d"></div><div class="d a"></div><div class="d"></div><div class="d a"></div><div class="d"></div>
+</div>
+
+<div class="arc-seg" style="top:70px; left:620px; border-right-color:transparent; border-bottom-color:transparent;"></div>
+<div class="arc-seg" style="bottom:50px; right:520px; border-left-color:transparent; border-top-color:transparent;"></div>
+
+<div class="stripe-cluster" style="bottom:130px; left:170px;">
+  <div class="stripe" style="height:26px;"></div>
+  <div class="stripe" style="height:44px;"></div>
+  <div class="stripe" style="height:16px;"></div>
+  <div class="stripe" style="height:56px;"></div>
+  <div class="stripe" style="height:30px;"></div>
+  <div class="stripe" style="height:38px;"></div>
+</div>
+
+<div class="interference" style="top:440px; left:0; width:100%;"></div>
+<div class="interference" style="top:442px; left:0; width:100%;"></div>
+<div class="interference" style="top:900px; left:0; width:55%;"></div>
+
+<!-- ═══ TITLE — top left ═══ -->
+<div class="title-block">
+  <div class="app-title">
+    <span class="past">Past</span><span class="comma">,</span>
+    <span class="live">LIVE</span>
+  </div>
+  <div class="tagline">The past is speaking. Are you?</div>
+  <div class="app-meta">
+    astro + svelte + gemini live api<br>
+    real-time voice · historical figures
+  </div>
+</div>
+
+<!-- ═══ MISSED CALL LIST — hero ═══ -->
+<div class="call-list-hero">
+  <div class="recents-header">Recents</div>
+  <div class="segment-ctrl">
+    <div class="seg active">All</div>
+    <div class="seg missed-seg">Missed</div>
+  </div>
+
+  <!-- Cleopatra -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#d4a574,#c49568);">
+      C
+      <div class="badge">3</div>
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Cleopatra VII</div>
+      <div class="call-detail">&#9742; Alexandria, 30 BCE (3)</div>
+      <div class="call-teaser-inline">"I didn't lose Egypt. I outlasted everyone who tried to take it."</div>
+    </div>
+    <div class="call-time">yesterday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+
+  <!-- Leonardo -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#7b9a6d,#6b8a5d);">
+      L
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Leonardo da Vinci</div>
+      <div class="call-detail">&#9742; Florence, 1482</div>
+      <div class="call-teaser-inline">"I designed a tank. In 1487. Nobody built it."</div>
+    </div>
+    <div class="call-time">yesterday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+
+  <!-- Hypatia -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#6b7fa8,#5b6f98);">
+      H
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Hypatia</div>
+      <div class="call-detail">&#9742; Alexandria, 415 CE</div>
+      <div class="call-teaser-inline">"They burned the library. Not the ideas."</div>
+    </div>
+    <div class="call-time">tuesday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+
+  <!-- Zheng He -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#c4636a,#b4535a);">
+      Z
+      <div class="badge">2</div>
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Zheng He</div>
+      <div class="call-detail">&#9742; Indian Ocean, 1405 (2)</div>
+      <div class="call-teaser-inline">"300 ships. Columbus had three. Three."</div>
+    </div>
+    <div class="call-time">tuesday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+
+  <!-- Ada Lovelace -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#9b7db8,#8b6da8);">
+      A
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Ada Lovelace</div>
+      <div class="call-detail">&#9742; London, 1843</div>
+      <div class="call-teaser-inline">"I wrote the first program. For a machine that didn't exist yet."</div>
+    </div>
+    <div class="call-time">monday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+
+  <!-- Mansa Musa -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#d4a83a,#c4982a);">
+      M
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Mansa Musa</div>
+      <div class="call-detail">&#9742; Mali Empire, 1324</div>
+      <div class="call-teaser-inline">"I crashed an entire economy. By accident. With gold."</div>
+    </div>
+    <div class="call-time">monday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+
+  <!-- Frida Kahlo -->
+  <div class="call-row">
+    <div class="call-avatar" style="background:linear-gradient(135deg,#e07a5f,#d06a4f);">
+      F
+    </div>
+    <div class="call-info">
+      <div class="call-name"><span class="missed-dot"></span>Frida Kahlo</div>
+      <div class="call-detail">&#9742; Mexico City, 1940</div>
+    </div>
+    <div class="call-time">sunday</div>
+    <div class="call-chev">&#8250;</div>
+  </div>
+</div>
+
+<!-- ═══ Quote — bottom left ═══ -->
+<div class="quote-block">
+  <div class="qt">"So we had about 7,000 men.<br>They had 80,000. Manageable."</div>
+  <div class="qa">— Constantine XI, on the siege</div>
+</div>
+
+<!-- ═══ Scenario card — top right ═══ -->
+<div class="scenario-card">
+  <div class="sc-label">incoming signal</div>
+  <div class="sc-field">
+    <span>caller:</span> cleopatra vii<br>
+    <span>year:</span> 30 bce<br>
+    <span>location:</span> alexandria<br>
+    <span>status:</span> negotiating
+  </div>
+</div>
+
+<!-- ═══ Loading — bottom right ═══ -->
+<div class="loading-card">
+  <div class="lc"><span class="gt">&gt;</span> dialing 30 bce...</div>
+  <div class="lc"><span class="gt">&gt;</span> reaching across centuries...</div>
+  <div class="lc"><span class="gt">&gt;</span> wiring up the time machine...</div>
+  <div class="lc"><span class="gt">&gt;</span> dusting off the history books...</div>
+</div>
+
+<!-- ═══ Constantine portrait — hero background ═══ -->
+<div class="constantine-portrait">
+  <img src="avatar-constantine.png" alt="">
+</div>
+
+<!-- ═══ Stack badges ═══ -->
+<div class="stack-badges">
+  <div class="stack-badge">astro 5</div>
+  <div class="stack-badge">svelte 5</div>
+  <div class="stack-badge">gemini live</div>
+  <div class="stack-badge">hono</div>
+  <div class="stack-badge">cloud run</div>
+  <div class="stack-badge">firestore</div>
+</div>
+
+</body>
+</html>

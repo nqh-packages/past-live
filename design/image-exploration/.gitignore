@@ -1,0 +1,5 @@
+# Image exploration artifacts — iteration work, not production assets
+*.png
+*.jpg
+*.webp
+!.gitignore

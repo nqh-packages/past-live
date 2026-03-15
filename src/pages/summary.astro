@@ -1,0 +1,74 @@
+---
+/**
+ * @what - Post-session summary screen
+ * @why - Renders debrief via SummaryView island which reads sessionStorage artifact.
+ *        Applies story palette inline before hydration to prevent palette flash.
+ */
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import SummaryView from "@/components/SummaryView.svelte";
+import SaveCallsNudge from "@/components/SaveCallsNudge.svelte";
+
+const backendUrl = import.meta.env.VITE_BACKEND_HTTP_URL ?? "https://past-live-backend-709469269798.us-central1.run.app";
+---
+
+<BaseLayout title="Past, Live — Call Ended">
+  <!--
+    Story palette injection: reads OKLCH values from sessionStorage (written by
+    SessionPreview overlay when the call started) and applies them as CSS custom
+    properties on :root before the island hydrates.
+
+    Same pattern as session.astro — ensures visual continuity from call → summary.
+    OKLCH syntax is validated before applying to prevent injection attacks.
+  -->
+  <script is:inline>
+    (function() {
+      var OKLCH_RE = /^oklch\(\s*[\d.]+%?\s+[\d.]+\s+[\d.]+\s*\)$/;
+      try {
+        var raw = sessionStorage.getItem('past-live:preview');
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        var palette = data && Array.isArray(data.colorPalette) ? data.colorPalette : [];
+        if (palette.length < 5) return;
+        var fgMatch = palette[3] && String(palette[3]).match(/oklch\(\s*([\d.]+)%/);
+        var bgMatch = palette[0] && String(palette[0]).match(/oklch\(\s*([\d.]+)%/);
+        if (fgMatch && bgMatch) {
+          var diff = parseFloat(fgMatch[1]) - parseFloat(bgMatch[1]);
+          if (diff < 40) return;
+        }
+        var props = ['--color-background','--color-surface','--color-accent','--color-foreground','--color-muted'];
+        var root = document.documentElement;
+        palette.forEach(function(val, i) {
+          if (props[i] && OKLCH_RE.test(String(val).trim())) {
+            root.style.setProperty(props[i], val);
+          }
+        });
+        if (palette[2] && OKLCH_RE.test(String(palette[2]).trim())) {
+          root.style.setProperty('--summary-accent', palette[2]);
+        }
+        // Derive border and glow from story palette (same as session.astro) for visual continuity
+        var accentVal = String(palette[2]).trim();
+        var fgVal = String(palette[3]).trim();
+        var accentMatch = accentVal.match(/oklch\(\s*([\d.]+%?\s+[\d.]+\s+[\d.]+)\s*\)/);
+        var fgValMatch2 = fgVal.match(/oklch\(\s*([\d.]+%?\s+[\d.]+\s+[\d.]+)\s*\)/);
+        if (fgValMatch2) {
+          root.style.setProperty('--color-border', 'oklch(' + fgValMatch2[1] + ' / 0.06)');
+        }
+        if (accentMatch) {
+          root.style.setProperty('--color-accent-glow', 'oklch(' + accentMatch[1] + ' / 0.20)');
+        }
+      } catch(_) {}
+    })();
+  </script>
+
+  <main id="main-content" class="flex flex-col min-h-screen max-w-md lg:max-w-xl mx-auto">
+    <!--
+      SummaryView orchestrates: SummaryHero + content sections + ShareCard + SummaryActions.
+      ShareCard and SaveCallsNudge are no longer separate client:load islands — they are
+      rendered inside SummaryView to avoid layout shift from multiple independent islands.
+    -->
+    <SummaryView client:load backendUrl={backendUrl} />
+    <!-- Sign-up nudge: separate island since it requires Clerk auth state -->
+    <SaveCallsNudge client:load />
+  </main>
+</BaseLayout>

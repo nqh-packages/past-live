@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Past, Live — Camera + Voice Test</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui; background: #111; color: #eee; display: flex; flex-direction: column; align-items: center; min-height: 100vh; gap: 16px; padding: 20px; }
+  h1 { font-size: 1.3rem; opacity: 0.6; }
+  h2 { font-size: 0.8rem; opacity: 0.3; max-width: 500px; text-align: center; line-height: 1.5; }
+  #status { font-size: 1rem; color: #aaa; }
+  #timer { font-family: monospace; font-size: 1.1rem; color: #aaa; }
+
+  .video-container { position: relative; width: 320px; height: 240px; background: #000; border-radius: 8px; overflow: hidden; border: 2px solid #333; }
+  .video-container.active { border-color: #22c55e; }
+  #cameraPreview { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .video-label { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #22c55e; font-size: 10px; padding: 2px 8px; border-radius: 4px; font-family: monospace; }
+  .video-off { display: flex; align-items: center; justify-content: center; color: #444; font-size: 0.8rem; }
+
+  #transcript { width: 100%; max-width: 600px; min-height: 200px; max-height: 400px; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 16px; font-size: 0.85rem; line-height: 1.6; font-family: monospace; }
+  .them { color: #7cb3ff; }
+  .you { color: #7cff7c; }
+  .system { color: #ff7c7c; font-style: italic; font-size: 0.8rem; }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  button { padding: 12px 24px; font-size: 0.95rem; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; }
+  #callBtn { background: #22c55e; color: #000; }
+  #callBtn:hover { background: #16a34a; }
+  #callBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
+  #hangupBtn { background: #ef4444; color: #fff; display: none; }
+  #cameraBtn { background: #3b82f6; color: #fff; display: none; }
+  #cameraBtn.active { background: #f59e0b; }
+  #uploadBtn { background: #8b5cf6; color: #fff; display: none; }
+  #screenBtn { background: #06b6d4; color: #fff; display: none; }
+
+  #frameLog { font-family: monospace; font-size: 0.75rem; color: #666; }
+</style>
+</head>
+<body>
+
+<h1>Past, Live — Camera + Voice Test</h1>
+<h2>Tests: live webcam feed to Gemini Live (1fps JPEG), voice + vision simultaneously. Character should comment on what they see.</h2>
+
+<div id="status">Ready. Pick a character and start a call with camera.</div>
+<div id="timer"></div>
+
+<div class="video-container" id="videoContainer">
+  <video id="cameraPreview" autoplay playsinline muted></video>
+  <div class="video-off" id="videoOff">Camera off</div>
+  <div class="video-label" id="videoLabel" style="display:none">LIVE 1fps</div>
+</div>
+<div id="frameLog"></div>
+
+<div id="transcript"></div>
+
+<input id="fileInput" type="file" accept="image/*" style="display:none" />
+
+<div class="controls">
+  <button id="callBtn" onclick="startCall()">Call (with camera)</button>
+  <button id="cameraBtn" onclick="toggleCamera()">📷 Camera</button>
+  <button id="uploadBtn" onclick="triggerUpload()">📎 Upload</button>
+  <button id="screenBtn" onclick="captureScreen()">🖥 Screen</button>
+  <button id="hangupBtn" onclick="hangUp()">Hang Up</button>
+</div>
+
+<script>
+const WS_URL = 'ws://localhost:8787/ws';
+const FRAME_INTERVAL_MS = 2000; // 0.5fps — slower to reduce crash risk with native audio
+const MAX_WIDTH = 512; // Smaller frames — Gemini uses MEDIA_RESOLUTION_LOW anyway
+const JPEG_QUALITY = 0.5;
+
+const CHARACTERS = [
+  { name: 'Constantine XI', setting: 'Constantinople, 1453', voice: 'Gacrux' },
+  { name: 'Gene Kranz', setting: 'Houston Mission Control, 1969', voice: 'Charon' },
+  { name: 'Cleopatra VII', setting: 'Alexandria, 30 BC', voice: 'Kore' },
+  { name: 'Leonardo da Vinci', setting: 'Florence, 1502', voice: 'Puck' },
+];
+
+let ws = null;
+let playbackCtx = null;
+let micStream = null;
+let cameraStream = null;
+let frameInterval = null;
+let startTime = null;
+let timerInterval = null;
+let currentChar = null;
+let frameCount = 0;
+let nextPlayTime = 0;
+let audioSources = [];
+let firstAudioReceived = false; // Gate: don't send video until model is speaking
+
+// Transcript state
+let currentOutputEl = null;
+let currentInputEl = null;
+let outputTimeout = null;
+let inputTimeout = null;
+
+// ─── Canvas for frame capture ────────────────────────────────────────────────
+const canvas = document.createElement('canvas');
+const canvasCtx = canvas.getContext('2d');
+
+function captureFrame(videoEl) {
+  const vw = videoEl.videoWidth;
+  const vh = videoEl.videoHeight;
+  if (!vw || !vh) return null;
+
+  // Downscale to max 1024px wide
+  const scale = vw > MAX_WIDTH ? MAX_WIDTH / vw : 1;
+  canvas.width = Math.round(vw * scale);
+  canvas.height = Math.round(vh * scale);
+
+  canvasCtx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+  // Strip "data:image/jpeg;base64," prefix
+  return dataUrl.split(',')[1];
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function elapsed() {
+  if (!startTime) return '';
+  return `[${((Date.now() - startTime) / 1000).toFixed(1)}s] `;
+}
+
+function log(text, cls = 'system') {
+  const div = document.getElementById('transcript');
+  div.innerHTML += `<div class="${cls}">${elapsed()}${text}</div>`;
+  div.scrollTop = div.scrollHeight;
+}
+
+function setStatus(text) {
+  document.getElementById('status').textContent = text;
+}
+
+function updateTimer() {
+  if (!startTime) return;
+  const s = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('timer').textContent =
+    `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// ─── Camera ──────────────────────────────────────────────────────────────────
+
+async function startCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+    });
+    const videoEl = document.getElementById('cameraPreview');
+    videoEl.srcObject = cameraStream;
+    document.getElementById('videoOff').style.display = 'none';
+    document.getElementById('videoLabel').style.display = 'block';
+    document.getElementById('videoContainer').classList.add('active');
+    document.getElementById('cameraBtn').classList.add('active');
+    document.getElementById('cameraBtn').textContent = '📷 Stop';
+
+    // Start 1fps frame capture
+    frameCount = 0;
+    frameInterval = setInterval(() => {
+      if (!firstAudioReceived) return; // Wait for model to warm up before sending video
+      const base64 = captureFrame(videoEl);
+      if (base64 && ws && ws.readyState === WebSocket.OPEN) {
+        const sizeKB = Math.round(base64.length * 3 / 4 / 1024);
+        ws.send(JSON.stringify({ type: 'video', data: base64, mimeType: 'image/jpeg' }));
+        frameCount++;
+        document.getElementById('frameLog').textContent = `Frames sent: ${frameCount} | Last: ${sizeKB}KB | Canvas: ${canvas.width}x${canvas.height}`;
+        if (frameCount === 1) {
+          log(`First frame: ${sizeKB}KB JPEG (${canvas.width}x${canvas.height})`, 'system');
+          console.log('[camera] First frame sent', { sizeKB, width: canvas.width, height: canvas.height, base64Len: base64.length });
+        }
+        if (frameCount % 10 === 0) {
+          console.log(`[camera] ${frameCount} frames sent (${sizeKB}KB each)`);
+        }
+      }
+    }, FRAME_INTERVAL_MS);
+
+    log('Camera started — 1fps JPEG to Gemini', 'system');
+  } catch (e) {
+    log(`Camera error: ${e.message}`, 'system');
+  }
+}
+
+function stopCamera() {
+  if (frameInterval) { clearInterval(frameInterval); frameInterval = null; }
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  document.getElementById('cameraPreview').srcObject = null;
+  document.getElementById('videoOff').style.display = 'flex';
+  document.getElementById('videoLabel').style.display = 'none';
+  document.getElementById('videoContainer').classList.remove('active');
+  document.getElementById('cameraBtn').classList.remove('active');
+  document.getElementById('cameraBtn').textContent = '📷 Camera';
+  document.getElementById('frameLog').textContent = '';
+  log('Camera stopped', 'system');
+}
+
+function toggleCamera() {
+  if (cameraStream) {
+    stopCamera();
+  } else {
+    startCamera();
+  }
+}
+
+// ─── Upload ──────────────────────────────────────────────────────────────────
+
+function triggerUpload() {
+  document.getElementById('fileInput').click();
+}
+
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvasCtx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+      const base64 = dataUrl.split(',')[1];
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        const sizeKB = Math.round(base64.length * 3 / 4 / 1024);
+        ws.send(JSON.stringify({ type: 'video', data: base64, mimeType: 'image/jpeg' }));
+        log(`Uploaded: ${file.name} (${canvas.width}x${canvas.height}, ${sizeKB}KB)`, 'system');
+        console.log('[upload]', { file: file.name, sizeKB, width: canvas.width, height: canvas.height });
+      }
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = ''; // Reset so same file can trigger again
+});
+
+// ─── Screen share ────────────────────────────────────────────────────────────
+
+async function captureScreen() {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const videoEl = document.createElement('video');
+    videoEl.srcObject = stream;
+    videoEl.autoplay = true;
+
+    // Wait for video to be ready
+    await new Promise(resolve => {
+      videoEl.onloadedmetadata = resolve;
+    });
+    // Give it a frame to render
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const base64 = captureFrame(videoEl);
+    // Stop immediately — one-shot capture
+    stream.getTracks().forEach(t => t.stop());
+
+    if (base64 && ws && ws.readyState === WebSocket.OPEN) {
+      const sizeKB = Math.round(base64.length * 3 / 4 / 1024);
+      ws.send(JSON.stringify({ type: 'video', data: base64, mimeType: 'image/jpeg' }));
+      log(`Screen captured (${canvas.width}x${canvas.height}, ${sizeKB}KB)`, 'system');
+      console.log('[screen]', { sizeKB, width: canvas.width, height: canvas.height });
+    }
+  } catch (e) {
+    log(`Screen share error: ${e.message}`, 'system');
+  }
+}
+
+// ─── Call lifecycle ──────────────────────────────────────────────────────────
+
+async function startCall() {
+  currentChar = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+
+  document.getElementById('callBtn').disabled = true;
+  document.getElementById('hangupBtn').style.display = 'inline-block';
+  document.getElementById('cameraBtn').style.display = 'inline-block';
+  document.getElementById('uploadBtn').style.display = 'inline-block';
+  document.getElementById('screenBtn').style.display = 'inline-block';
+  document.getElementById('transcript').innerHTML = '';
+
+  setStatus(`Calling ${currentChar.name} (${currentChar.setting})...`);
+  log(`Dialing ${currentChar.name}, ${currentChar.setting}...`);
+  log(`Voice: ${currentChar.voice}`);
+
+  playbackCtx = new AudioContext({ sampleRate: 24000 });
+  if (playbackCtx.state === 'suspended') await playbackCtx.resume();
+
+  // Mic
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    log('Mic access granted.', 'system');
+  } catch (e) {
+    log(`Mic denied: ${e.message}. Text-only mode.`, 'system');
+  }
+
+  // Auto-start camera
+  await startCamera();
+
+  // WebSocket
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    log('WebSocket connected.', 'system');
+    ws.send(JSON.stringify({
+      type: 'start',
+      topic: `${currentChar.name}, ${currentChar.setting}`,
+      characterName: currentChar.name,
+      historicalSetting: currentChar.setting,
+      voiceName: currentChar.voice,
+    }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    switch (msg.type) {
+      case 'connected':
+        setStatus(`Connected to ${currentChar.name} (camera active)`);
+        log('Connected! Camera streaming 1fps to Gemini.', 'system');
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimer, 1000);
+        if (micStream) startMicCapture();
+        break;
+
+      case 'audio':
+        if (!firstAudioReceived) {
+          firstAudioReceived = true;
+          log('First audio received — video frames will now send', 'system');
+        }
+        playAudioChunk(msg.data);
+        break;
+
+      case 'output_transcription':
+        if (!currentOutputEl) {
+          currentOutputEl = document.createElement('div');
+          currentOutputEl.className = 'them';
+          currentOutputEl.textContent = `${elapsed()}[${currentChar.name.toUpperCase()}] `;
+          document.getElementById('transcript').appendChild(currentOutputEl);
+        }
+        currentOutputEl.textContent += msg.text;
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        clearTimeout(outputTimeout);
+        outputTimeout = setTimeout(() => { currentOutputEl = null; }, 3000);
+        break;
+
+      case 'input_transcription':
+        if (!currentInputEl) {
+          currentInputEl = document.createElement('div');
+          currentInputEl.className = 'you';
+          currentInputEl.textContent = `${elapsed()}[YOU] `;
+          document.getElementById('transcript').appendChild(currentInputEl);
+        }
+        // Gemini sends deltas (word fragments), not cumulative — append to current element
+        currentInputEl.textContent += msg.text;
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        clearTimeout(inputTimeout);
+        // 3s timeout — speech has natural pauses >1s mid-sentence. 1s was splitting sentences.
+        inputTimeout = setTimeout(() => { currentInputEl = null; }, 3000);
+        break;
+
+      case 'turn_complete':
+        currentOutputEl = null;
+        currentInputEl = null;
+        break;
+
+      case 'interrupted':
+        log('— interrupted —', 'system');
+        currentOutputEl = null;
+        currentInputEl = null;
+        clearAudioQueue();
+        break;
+
+      case 'tool_call':
+        log(`TOOL: ${msg.name}(${JSON.stringify(msg.args).slice(0, 100)})`, 'system');
+        break;
+
+      case 'scene_image': {
+        log(`IMAGE: ${msg.title}`, 'system');
+        const imgDiv = document.createElement('div');
+        imgDiv.innerHTML = `<em>${msg.title}</em><br><img src="data:image/png;base64,${msg.image}" style="max-width:100%;border-radius:8px;margin-top:8px;" />`;
+        document.getElementById('transcript').appendChild(imgDiv);
+        break;
+      }
+
+      case 'ended':
+        setStatus('Call ended.');
+        log(`Call ended: ${msg.reason}`, 'system');
+        if (msg.summary?.keyFacts) msg.summary.keyFacts.forEach(f => log(`  - ${f}`, 'system'));
+        cleanup();
+        break;
+
+      case 'error':
+        log(`Error: ${msg.message}`, 'system');
+        break;
+    }
+  };
+
+  ws.onclose = (e) => {
+    log(`Disconnected (code=${e.code}, clean=${e.wasClean}, reason=${e.reason || 'none'})`, 'system');
+    console.log('[ws] close', { code: e.code, wasClean: e.wasClean, reason: e.reason });
+    cleanup();
+  };
+  ws.onerror = (e) => {
+    log('WebSocket error.', 'system');
+    console.error('[ws] error', e);
+    cleanup();
+  };
+}
+
+// ─── Audio playback ──────────────────────────────────────────────────────────
+
+function playAudioChunk(base64) {
+  if (!playbackCtx) return;
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const int16 = new Int16Array(bytes.buffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+  const buf = playbackCtx.createBuffer(1, float32.length, 24000);
+  buf.getChannelData(0).set(float32);
+  const src = playbackCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(playbackCtx.destination);
+  const now = playbackCtx.currentTime;
+  const startAt = Math.max(now, nextPlayTime);
+  src.start(startAt);
+  nextPlayTime = startAt + buf.duration;
+  audioSources.push(src);
+  src.onended = () => {
+    const idx = audioSources.indexOf(src);
+    if (idx !== -1) audioSources.splice(idx, 1);
+  };
+}
+
+function clearAudioQueue() {
+  for (const src of audioSources) { try { src.stop(); } catch {} }
+  audioSources = [];
+  nextPlayTime = 0;
+}
+
+// ─── Mic capture (16kHz) ─────────────────────────────────────────────────────
+
+function startMicCapture() {
+  const micCtx = new AudioContext({ sampleRate: 16000 });
+  const source = micCtx.createMediaStreamSource(micStream);
+  const processor = micCtx.createScriptProcessor(1024, 1, 1);
+
+  processor.onaudioprocess = (e) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const float32 = e.inputBuffer.getChannelData(0);
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    const bytes = new Uint8Array(int16.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    ws.send(JSON.stringify({ type: 'audio', data: btoa(binary), mimeType: 'audio/pcm;rate=16000' }));
+  };
+
+  source.connect(processor);
+  processor.connect(micCtx.destination);
+}
+
+// ─── Controls ────────────────────────────────────────────────────────────────
+
+function hangUp() {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+  cleanup();
+  setStatus('You hung up.');
+}
+
+function cleanup() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  stopCamera();
+  clearAudioQueue();
+  firstAudioReceived = false;
+  document.getElementById('callBtn').disabled = false;
+  document.getElementById('hangupBtn').style.display = 'none';
+  document.getElementById('cameraBtn').style.display = 'none';
+  document.getElementById('uploadBtn').style.display = 'none';
+  document.getElementById('screenBtn').style.display = 'none';
+  startTime = null;
+}
+</script>
+</body>
+</html>

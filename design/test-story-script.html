@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Past, Live — Story Script Test (Bolívar)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui; background: #111; color: #eee; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; gap: 20px; padding: 20px; }
+  h1 { font-size: 1.3rem; opacity: 0.6; }
+  h2 { font-size: 0.9rem; opacity: 0.35; max-width: 500px; text-align: center; line-height: 1.5; }
+  #status { font-size: 1.1rem; color: #aaa; }
+  #transcript { width: 100%; max-width: 600px; min-height: 300px; max-height: none; overflow-y: auto; background: #1a1a1a; border-radius: 8px; padding: 16px; font-size: 0.9rem; line-height: 1.6; }
+  .them { color: #7cb3ff; opacity: 0; animation: fadeIn 0.8s ease-out 1.2s forwards; }
+  .you { color: #7cff7c; }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .system { color: #ff7c7c; font-style: italic; }
+  button { padding: 16px 32px; font-size: 1.1rem; border: none; border-radius: 50px; cursor: pointer; }
+  #callBtn { background: #f59e0b; color: #000; font-weight: bold; }
+  #callBtn:hover { background: #d97706; }
+  #callBtn:disabled { background: #333; color: #666; cursor: not-allowed; }
+  #hangupBtn { background: #ef4444; color: #fff; font-weight: bold; display: none; }
+  #hangupBtn:hover { background: #dc2626; }
+  .controls { display: flex; gap: 12px; }
+  #timer { font-family: monospace; font-size: 1.2rem; color: #aaa; }
+  #micLevel { width: 200px; height: 8px; background: #333; border-radius: 4px; overflow: hidden; }
+  #micLevelBar { height: 100%; background: #f59e0b; width: 0%; transition: width 50ms; }
+  #textInput { background: #222; border: 1px solid #444; color: #eee; padding: 8px 16px; border-radius: 8px; width: 100%; max-width: 400px; font-size: 1rem; display: none; }
+</style>
+</head>
+<body>
+
+<h1>Story Script Test — Simón Bolívar</h1>
+<h2>Testing: hardcoded story script prompt. No tool calls. Voice only. Does the framing + anchors + derivable choices work?</h2>
+<div id="status">Ready. This test uses a hardcoded story script for Bolívar.</div>
+<div id="timer"></div>
+<div id="micLevel"><div id="micLevelBar"></div></div>
+<div id="transcript"></div>
+<input id="textInput" type="text" placeholder="Type a message and press Enter..." />
+<div class="controls">
+  <button id="callBtn" onclick="startCall()">Call Bolívar</button>
+  <button id="hangupBtn" onclick="hangUp()">Hang Up</button>
+</div>
+
+<script>
+const WS_URL = 'ws://localhost:8787/ws';
+
+let ws = null;
+let playbackCtx = null;
+let micStream = null;
+let startTime = null;
+let timerInterval = null;
+let audioChunkCount = 0;
+let currentOutputEl = null;
+let currentInputEl = null;
+let outputTimeout = null;
+let inputTimeout = null;
+
+function elapsedSec() {
+  if (!startTime) return 0;
+  return ((Date.now() - startTime) / 1000);
+}
+
+function elapsed() {
+  if (!startTime) return '';
+  return `[${elapsedSec().toFixed(1)}s] `;
+}
+
+function log(text, cls = 'system') {
+  const div = document.getElementById('transcript');
+  div.innerHTML += `<div class="${cls}">${elapsed()}${text}</div>`;
+  div.scrollTop = div.scrollHeight;
+}
+
+function setStatus(text) {
+  document.getElementById('status').textContent = text;
+}
+
+function updateTimer() {
+  if (!startTime) return;
+  const el = Math.floor((Date.now() - startTime) / 1000);
+  const min = String(Math.floor(el / 60)).padStart(2, '0');
+  const sec = String(el % 60).padStart(2, '0');
+  document.getElementById('timer').textContent = `${min}:${sec}`;
+}
+
+async function startCall() {
+  document.getElementById('callBtn').disabled = true;
+  document.getElementById('hangupBtn').style.display = 'inline-block';
+  document.getElementById('textInput').style.display = 'block';
+  document.getElementById('transcript').innerHTML = '';
+
+  setStatus('Calling Simón Bolívar (story script test)...');
+  log('Dialing SIMÓN BOLÍVAR — story script test (no tools)...');
+
+  playbackCtx = new AudioContext({ sampleRate: 24000 });
+  // Resume AudioContext — browsers suspend it until user gesture
+  if (playbackCtx.state === 'suspended') await playbackCtx.resume();
+
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    log('Mic access granted.', 'system');
+  } catch (e) {
+    log(`Mic denied: ${e.message}. Text-only mode.`, 'system');
+  }
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    log('WebSocket connected. Sending start with story-script-test scenario...', 'system');
+    // Use the special test scenario ID that relay recognizes
+    ws.send(JSON.stringify({
+      type: 'start',
+      scenarioId: 'test-story-script-bolivar',
+      voiceName: 'Orus',
+    }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    switch (msg.type) {
+      case 'connected':
+        setStatus('Connected to SIMÓN BOLÍVAR (story script)');
+        log('Connected! Testing story framing...', 'system');
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimer, 1000);
+        if (micStream) startMicCapture();
+        break;
+
+      case 'audio':
+        audioChunkCount++;
+        playAudioChunk(msg.data);
+        break;
+
+      case 'output_transcription': {
+        const text = msg.text;
+        if (!currentOutputEl) {
+          currentOutputEl = document.createElement('div');
+          currentOutputEl.className = 'them';
+          currentOutputEl.textContent = `${elapsed()}BOLÍVAR: `;
+          document.getElementById('transcript').appendChild(currentOutputEl);
+        }
+        currentOutputEl.textContent += text + ' ';
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        clearTimeout(outputTimeout);
+        outputTimeout = setTimeout(() => { currentOutputEl = null; }, 3000);
+        break;
+      }
+
+      case 'input_transcription': {
+        const text = msg.text;
+        if (!currentInputEl) {
+          currentInputEl = document.createElement('div');
+          currentInputEl.className = 'you';
+          currentInputEl.textContent = `${elapsed()}YOU: `;
+          document.getElementById('transcript').appendChild(currentInputEl);
+        }
+        // Gemini sends deltas — append, not replace
+        currentInputEl.textContent += text;
+        document.getElementById('transcript').scrollTop = document.getElementById('transcript').scrollHeight;
+        clearTimeout(inputTimeout);
+        inputTimeout = setTimeout(() => { currentInputEl = null; }, 3000);
+        break;
+      }
+
+      case 'turn_complete':
+        currentOutputEl = null;
+        currentInputEl = null;
+        clearTimeout(outputTimeout);
+        clearTimeout(inputTimeout);
+        break;
+
+      case 'interrupted':
+        log('— interrupted —', 'system');
+        currentOutputEl = null;
+        currentInputEl = null;
+        clearAudioQueue();
+        break;
+
+      case 'ended':
+        log(`Session ended: ${msg.reason}`, 'system');
+        cleanup();
+        break;
+
+      case 'error':
+        log(`Error: ${msg.message}`, 'system');
+        cleanup();
+        break;
+
+      // Ignore tool calls — this test has no tools
+      case 'tool_call':
+        log(`[TOOL CALL IGNORED] ${msg.name}: ${JSON.stringify(msg.args)}`, 'system');
+        break;
+
+      case 'choices':
+        log(`[CHOICES IGNORED] ${msg.choices.map(c => c.title).join(', ')}`, 'system');
+        break;
+    }
+  };
+
+  ws.onerror = () => { log('WebSocket error', 'system'); cleanup(); };
+  ws.onclose = () => { log('WebSocket closed', 'system'); };
+
+  // Text input
+  document.getElementById('textInput').onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      const input = e.target;
+      const text = input.value.trim();
+      if (text && ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'text', text }));
+        log(`YOU (typed): ${text}`, 'you');
+        input.value = '';
+      }
+    }
+  };
+}
+
+function hangUp() {
+  if (ws) ws.close();
+  cleanup();
+}
+
+function cleanup() {
+  if (timerInterval) clearInterval(timerInterval);
+  if (micStream) micStream.getTracks().forEach(t => t.stop());
+  micStream = null;
+  ws = null;
+  clearAudioQueue();
+  document.getElementById('callBtn').disabled = false;
+  document.getElementById('hangupBtn').style.display = 'none';
+  document.getElementById('textInput').style.display = 'none';
+}
+
+// ─── Audio playback (24kHz PCM) — queued so chunks play sequentially ─────────
+
+let nextPlayTime = 0;
+let audioSources = [];
+
+function playAudioChunk(base64) {
+  if (!playbackCtx) return;
+  const raw = atob(base64);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+  const int16 = new Int16Array(bytes.buffer);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+  const buf = playbackCtx.createBuffer(1, float32.length, 24000);
+  buf.getChannelData(0).set(float32);
+  const src = playbackCtx.createBufferSource();
+  src.buffer = buf;
+  src.connect(playbackCtx.destination);
+  const now = playbackCtx.currentTime;
+  const startAt = Math.max(now, nextPlayTime);
+  src.start(startAt);
+  nextPlayTime = startAt + buf.duration;
+  audioSources.push(src);
+  src.onended = () => {
+    const idx = audioSources.indexOf(src);
+    if (idx !== -1) audioSources.splice(idx, 1);
+  };
+}
+
+function clearAudioQueue() {
+  for (const src of audioSources) {
+    try { src.stop(); } catch {}
+  }
+  audioSources = [];
+  nextPlayTime = 0;
+}
+
+// ─── Mic capture (16kHz PCM) ─────────────────────────────────────────────────
+
+function startMicCapture() {
+  if (!micStream || !playbackCtx) return;
+  const micCtx = new AudioContext({ sampleRate: 16000 });
+  const source = micCtx.createMediaStreamSource(micStream);
+  const processor = micCtx.createScriptProcessor(1024, 1, 1);
+
+  processor.onaudioprocess = (e) => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const float32 = e.inputBuffer.getChannelData(0);
+
+    // Mic level bar
+    let sum = 0;
+    for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
+    const rms = Math.sqrt(sum / float32.length);
+    document.getElementById('micLevelBar').style.width = `${Math.min(rms * 500, 100)}%`;
+
+    // Convert to 16-bit PCM
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    const bytes = new Uint8Array(int16.buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    ws.send(JSON.stringify({ type: 'audio', data: base64, mimeType: 'audio/pcm;rate=16000' }));
+  };
+
+  source.connect(processor);
+  processor.connect(micCtx.destination);
+}
+</script>
+</body>
+</html>

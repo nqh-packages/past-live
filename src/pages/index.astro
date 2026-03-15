@@ -1,0 +1,200 @@
+---
+/**
+ * @what - Combined home page: hero + input + cards + for-judges
+ * @why - Single page eliminates friction — judges and students land directly on the action
+ */
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import ScenarioCard from "@/components/ScenarioCard.svelte";
+import TopicInput from "@/components/TopicInput.svelte";
+import SessionPreview from "@/components/SessionPreview.svelte";
+import CallHistory from "@/components/CallHistory.svelte";
+import BrandLogo from "@/components/BrandLogo.svelte";
+import { SCENARIOS_ARRAY } from "@/lib/scenarios";
+
+const backendUrl = import.meta.env.VITE_BACKEND_HTTP_URL ?? "http://localhost:8787";
+
+const scenarios = SCENARIOS_ARRAY.map((s) => ({
+  id: s.id,
+  person: s.person,
+  era: s.era,
+  teaser: s.teaser,
+  avatarUrl: s.avatarUrl,
+  sceneUrl: s.sceneUrl,
+  preset: s.preset,
+}));
+---
+
+<BaseLayout
+  title="Past, Live — History happened. Call someone who was there."
+  description="Voice-first time travel. Talk to historical figures. They talk back. Powered by Gemini Live API."
+>
+  <!-- SessionPreview overlay -->
+  <SessionPreview
+    client:only="svelte"
+    backendUrl={backendUrl}
+    scenarios={scenarios}
+  />
+
+  <main id="main-content" class="min-h-screen flex flex-col items-center px-5 pb-24">
+
+    <!-- ─── Hero ─────────────────────────────────────────────────────── -->
+    <section class="w-full max-w-md lg:max-w-lg mx-auto pt-20 pb-12 text-center">
+
+      <!-- Logo -->
+      <div class="mb-10">
+        <h1><BrandLogo size="lg" /></h1>
+      </div>
+
+      <!-- Tagline -->
+      <h2 class="font-serif italic text-foreground text-2xl sm:text-3xl lg:text-4xl leading-snug mb-3">
+        History happened. You missed it.<br />Call someone who didn't.
+      </h2>
+
+      <!-- Audience line -->
+      <p class="font-mono text-xs text-foreground/35 tracking-[0.08em] mb-6">
+        for students who'd rather talk than read
+      </p>
+
+      <!-- Concrete sentence -->
+      <p class="font-serif italic text-foreground/60 text-base lg:text-lg leading-relaxed mb-10">
+        Pick a moment. Someone who was there picks up.<br />They already know who you are.
+      </p>
+    </section>
+
+    <!-- ─── Input ─────────────────────────────────────────────────────── -->
+    <section class="w-full max-w-md lg:max-w-xl xl:max-w-2xl mx-auto mb-14" aria-label="Topic input">
+      <TopicInput client:load backendUrl={backendUrl} />
+    </section>
+
+    <!-- Recent calls -->
+    <div class="w-full max-w-md lg:max-w-xl xl:max-w-2xl mx-auto">
+      <CallHistory client:load backendUrl={backendUrl} />
+    </div>
+
+    <!-- Divider -->
+    <p class="text-foreground/20 text-xs tracking-[0.2em] uppercase mb-8" aria-hidden="true">
+      or pick a moment
+    </p>
+
+    <!-- ─── Preset cards ──────────────────────────────────────────────── -->
+    <section class="w-full max-w-md lg:max-w-xl xl:max-w-2xl mx-auto mb-20" aria-label="Historical moments to explore">
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        {scenarios.map((s) => (
+          <ScenarioCard scenario={s} client:visible />
+        ))}
+      </div>
+    </section>
+
+    <!-- ─── How it works (collapsed) ──────────────────────────────────── -->
+    <section class="w-full max-w-md lg:max-w-lg mx-auto mb-16" aria-label="How it works">
+      <details class="border border-border/40 rounded-sm">
+        <summary class="font-mono text-xs text-foreground/30 tracking-[0.15em] uppercase px-5 py-4 cursor-pointer hover:text-foreground/50 transition-colors list-none flex items-center justify-between">
+          <span>&gt; how it works</span>
+          <span class="text-foreground/20 text-2xs" aria-hidden="true">[ expand ]</span>
+        </summary>
+        <div class="px-5 pb-5 pt-2">
+          <div class="relative pl-[48px] space-y-8">
+            <div class="absolute top-0 left-[36px] bottom-0 w-px bg-accent/8" aria-hidden="true"></div>
+
+            <div>
+              <div class="font-mono text-xs text-foreground/25 tracking-[0.1em] mb-2">&gt; step 01</div>
+              <h3 class="font-display text-foreground text-lg tracking-wide mb-1">Input</h3>
+              <p class="font-mono text-xs text-foreground/40 leading-relaxed">
+                Type a topic, speak it, or snap a photo of what you're studying.
+                We find the person who was there.
+              </p>
+            </div>
+
+            <div>
+              <div class="font-mono text-xs text-foreground/25 tracking-[0.1em] mb-2">&gt; step 02</div>
+              <h3 class="font-display text-foreground text-lg tracking-wide mb-1">Preview</h3>
+              <p class="font-mono text-xs text-foreground/40 leading-relaxed">
+                See who you're calling and the stakes. Review it. Then call.
+              </p>
+            </div>
+
+            <div>
+              <div class="font-mono text-xs text-foreground/25 tracking-[0.1em] mb-2">&gt; step 03</div>
+              <h3 class="font-display text-foreground text-lg tracking-wide mb-1">Session</h3>
+              <p class="font-mono text-xs text-foreground/40 leading-relaxed">
+                They speak first. You respond, interrupt, or stay silent.
+                The story depends on your call.
+              </p>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ─── For Judges (collapsed) ────────────────────────────────────── -->
+    <section
+      id="for-judges"
+      class="w-full max-w-md lg:max-w-lg mx-auto mb-12"
+      aria-label="For hackathon judges"
+    >
+      <details class="border border-border rounded-sm">
+        <summary class="font-mono text-xs text-foreground/30 tracking-[0.15em] uppercase px-5 py-4 cursor-pointer hover:text-foreground/50 transition-colors list-none flex items-center justify-between">
+          <span>&gt; for judges</span>
+          <span class="text-foreground/20 text-2xs" aria-hidden="true">[ expand ]</span>
+        </summary>
+
+        <div class="px-5 pb-5 pt-2 space-y-6">
+
+          <p class="font-serif italic text-foreground/55 text-sm leading-relaxed">
+            Students call historical figures and have real-time voice conversations — the character already knows who you are, reacts to your choices, and never breaks character.
+          </p>
+
+          <div>
+            <div class="font-mono text-xs text-accent/60 tracking-[0.1em] uppercase mb-3">&gt; what gemini live api enables</div>
+            <div class="font-mono text-xs text-foreground/30 space-y-1">
+              <div>&gt; affective dialog — the character's tone shifts with the drama</div>
+              <div>&gt; native audio — not text-to-speech. the voice IS the model</div>
+              <div>&gt; natural interruption — speak mid-sentence, the character listens</div>
+              <div>&gt; tool calling — choices appear on screen, triggered by the ai mid-conversation</div>
+              <div>&gt; 3 gemini models collaborate per session — live voice + flash intelligence + image generation</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="font-mono text-xs text-accent/60 tracking-[0.1em] uppercase mb-3">&gt; tech stack</div>
+            <div class="font-mono text-xs text-foreground/30 space-y-1">
+              <div>&gt; gemini live api (gemini-2.5-flash-native-audio)</div>
+              <div>&gt; gemini 3-flash-preview (session preview json)</div>
+              <div>&gt; gemini 3.1-flash-image-preview (scene art + avatar)</div>
+              <div>&gt; hono backend on cloud run (websocket relay)</div>
+              <div>&gt; astro 5 + svelte 5 on cloudflare workers</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="font-mono text-xs text-accent/60 tracking-[0.1em] uppercase mb-3">&gt; category</div>
+            <div class="font-mono text-xs text-foreground/30 space-y-1">
+              <div>&gt; live agents — real-time voice + vision</div>
+              <div>&gt; educational history role-play tutor</div>
+              <div>&gt; natural interruption via gemini vad</div>
+            </div>
+          </div>
+
+          <div>
+            <div class="font-mono text-xs text-accent/60 tracking-[0.1em] uppercase mb-3">&gt; quick start</div>
+            <div class="font-mono text-xs text-foreground/30 space-y-1">
+              <div>&gt; pick a moment above or type any topic</div>
+              <div>&gt; approve mic when prompted</div>
+              <div>&gt; the character picks up — just respond</div>
+            </div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ─── Privacy footer ───────────────────────────────────────────── -->
+    <footer class="text-foreground/40 text-xs tracking-[0.15em] text-center leading-relaxed" role="contentinfo">
+      explore freely — no wrong questions<br />
+      ai characters may contain historical inaccuracies<br />
+      voice processed live, never recorded<br />
+      <a href="/privacy" class="inline-flex items-center justify-center min-h-11 text-foreground/30 hover:text-foreground/50 transition-colors underline underline-offset-2">privacy</a>
+    </footer>
+
+  </main>
+</BaseLayout>
